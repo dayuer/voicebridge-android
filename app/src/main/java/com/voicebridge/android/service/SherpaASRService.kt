@@ -254,14 +254,14 @@ class SherpaASRService private constructor() {
                 sileroVadModelConfig = SileroVadModelConfig(model = vadModelPath),
                 sampleRate = 16000
             )
-            // 配置 VAD 缓冲区（bufferSizeInSeconds = 30 秒）
-            val detector = Vad(config = vadConfig, bufferSizeInSeconds = 30.0f)
+            // 配置 VAD 缓冲区
+            val detector = Vad(config = vadConfig)
             detector.acceptWaveform(samples)
             
             val regions = ArrayList<Pair<Double, Double>>()
             
             // 循环获取被检测出的活动语音段
-            while (!detector.isEmpty()) {
+            while (!detector.empty()) {
                 val segment: SpeechSegment = detector.front()
                 detector.pop()
                 
