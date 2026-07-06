@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- 启动图标背景色：品牌蓝 -->
-    <color name="ic_launcher_background">#1A73E8</color>
-    <!-- 启动图标前景色：白色 -->
-    <color name="ic_launcher_foreground">#FFFFFF</color>
-</resources>
