@@ -2,13 +2,13 @@ package com.voicebridge.android.service
 
 import android.content.Context
 import android.util.Log
+import androidx.room.withTransaction
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.data.entity.MeetingRecordEntity
 import com.voicebridge.android.data.entity.SpeakerProfileEntity
 import com.voicebridge.android.data.entity.TranscriptSegmentEntity
 import com.voicebridge.android.data.entity.VoiceSampleEntity
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -85,29 +85,27 @@ object TranscriptFinalizer {
         PunctuationService.getInstance().unload()
 
         // 2. Room 事务中清理旧数据
-        db.runInTransaction {
-            runBlocking {
-                db.transcriptSegmentDao().deleteByMeetingId(meetingId)
-                // 级联删除在第一阶段Room中已通过ForeignKey声明，
-                // 理论上删除旧段落即可，但我们在此处进行原子清除
-                
-                // 3. 落库纯文字段落 (speakerIndex = -1, speakerLabel = "")
-                val fallbackEnd = rawSegments.maxOfOrNull { it.end } ?: 0.0
-                val paras = toParas(composed, speaker = -1, fallbackEnd = fallbackEnd)
+        db.withTransaction {
+            db.transcriptSegmentDao().deleteByMeetingId(meetingId)
+            // 级联删除在第一阶段Room中已通过ForeignKey声明，
+            // 理论上删除旧段落即可，但我们在此处进行原子清除
+            
+            // 3. 落库纯文字段落 (speakerIndex = -1, speakerLabel = "")
+            val fallbackEnd = rawSegments.maxOfOrNull { it.end } ?: 0.0
+            val paras = toParas(composed, speaker = -1, fallbackEnd = fallbackEnd)
 
-                val segments = paras.map { p ->
-                    TranscriptSegmentEntity(
-                        meetingId = meetingId,
-                        speakerLabel = "",
-                        speakerColorIndex = 0,
-                        text = p.text,
-                        timestamp = p.start,
-                        endTimestamp = p.end,
-                        isFinal = true
-                    )
-                }
-                db.transcriptSegmentDao().insertAll(segments)
+            val segments = paras.map { p ->
+                TranscriptSegmentEntity(
+                    meetingId = meetingId,
+                    speakerLabel = "",
+                    speakerColorIndex = 0,
+                    text = p.text,
+                    timestamp = p.start,
+                    endTimestamp = p.end,
+                    isFinal = true
+                )
             }
+            db.transcriptSegmentDao().insertAll(segments)
         }
 
         // 4. 将 ASR 窗口数据存入 JSON 缓存，供 Stage B 使用
@@ -176,109 +174,107 @@ object TranscriptFinalizer {
         val knownProfiles = fetchKnownProfiles(db, expectedIDs)
 
         // 5. 开启 Room 数据库事务重建段落与声纹落库
-        db.runInTransaction {
-            runBlocking {
-                // 清理此会议下的旧段落与声纹样本
-                db.transcriptSegmentDao().deleteByMeetingId(meetingId)
-                // 理论上级联删除会自动处理，但在 Room 实体化层面最好保持显式操作
+        db.withTransaction {
+            // 清理此会议下的旧段落与声纹样本
+            db.transcriptSegmentDao().deleteByMeetingId(meetingId)
+            // 理论上级联删除会自动处理，但在 Room 实体化层面最好保持显式操作
 
-                // 统计声纹并计算簇质心 (Centroid)
-                val samplesBySpeaker = HashMap<Int, ArrayList<VoiceSampleEntity>>()
-                val sumBySpeaker = HashMap<Int, FloatArray>()
-                val cntBySpeaker = HashMap<Int, Int>()
+            // 统计声纹并计算簇质心 (Centroid)
+            val samplesBySpeaker = HashMap<Int, ArrayList<VoiceSampleEntity>>()
+            val sumBySpeaker = HashMap<Int, FloatArray>()
+            val cntBySpeaker = HashMap<Int, Int>()
 
-                for (vp in computed.voiceprints) {
-                    val vsId = UUID.randomUUID().toString()
-                    val vs = VoiceSampleEntity(
-                        id = vsId,
-                        meetingId = meetingId,
-                        startTime = vp.start,
-                        endTime = vp.end,
-                        embedding = vp.embedding.toList()
-                    )
-                    db.voiceSampleDao().insert(vs)
-                    
-                    samplesBySpeaker.getOrPut(vp.speaker) { ArrayList() }.add(vs)
-                    
-                    val dim = vp.embedding.size
-                    val sumV = sumBySpeaker.getOrPut(vp.speaker) { FloatArray(dim) }
-                    for (i in 0 until dim) {
-                        sumV[i] += vp.embedding[i]
-                    }
-                    cntBySpeaker[vp.speaker] = cntBySpeaker.getOrDefault(vp.speaker, 0) + 1
+            for (vp in computed.voiceprints) {
+                val vsId = UUID.randomUUID().toString()
+                val vs = VoiceSampleEntity(
+                    id = vsId,
+                    meetingId = meetingId,
+                    startTime = vp.start,
+                    endTime = vp.end,
+                    embedding = vp.embedding.toList()
+                )
+                db.voiceSampleDao().insert(vs)
+                
+                samplesBySpeaker.getOrPut(vp.speaker) { ArrayList() }.add(vs)
+                
+                val dim = vp.embedding.size
+                val sumV = sumBySpeaker.getOrPut(vp.speaker) { FloatArray(dim) }
+                for (i in 0 until dim) {
+                    sumV[i] += vp.embedding[i]
                 }
+                cntBySpeaker[vp.speaker] = cntBySpeaker.getOrDefault(vp.speaker, 0) + 1
+            }
 
-                val centroidBySpeaker = HashMap<Int, FloatArray>()
-                for ((sid, sumV) in sumBySpeaker) {
-                    val n = Math.max(1, cntBySpeaker[sid] ?: 1).toFloat()
-                    val c = FloatArray(sumV.size) { i -> sumV[i] / n }
-                    SpeakerMatcher.l2Normalize(c)
-                    centroidBySpeaker[sid] = c
-                }
+            val centroidBySpeaker = HashMap<Int, FloatArray>()
+            for ((sid, sumV) in sumBySpeaker) {
+                val n = Math.max(1, cntBySpeaker[sid] ?: 1).toFloat()
+                val c = FloatArray(sumV.size) { i -> sumV[i] / n }
+                SpeakerMatcher.l2Normalize(c)
+                centroidBySpeaker[sid] = c
+            }
 
-                // 跨会议已知声纹匹配
-                val speakerToProfile = HashMap<Int, SpeakerProfileEntity>()
-                val speakerToName = HashMap<Int, String>()
-                for ((sid, centroid) in centroidBySpeaker) {
-                    var bestProfile: SpeakerProfileEntity? = null
-                    var bestScore = 0.0f
-                    for (profile in knownProfiles) {
-                        val vp = profile.voiceprint ?: continue
-                        val vpArr = FloatArray(vp.size) { i -> vp[i] }
-                        val score = VectorSearchService.cosineSimilarity(centroid, vpArr)
-                        if (score > 0.78f && score > bestScore) {
-                            bestScore = score
-                            bestProfile = profile
-                        }
-                    }
-                    if (bestProfile != null) {
-                        speakerToProfile[sid] = bestProfile
-                        speakerToName[sid] = bestProfile.name
+            // 跨会议已知声纹匹配
+            val speakerToProfile = HashMap<Int, SpeakerProfileEntity>()
+            val speakerToName = HashMap<Int, String>()
+            for ((sid, centroid) in centroidBySpeaker) {
+                var bestProfile: SpeakerProfileEntity? = null
+                var bestScore = 0.0f
+                for (profile in knownProfiles) {
+                    val vp = profile.voiceprint ?: continue
+                    val vpArr = FloatArray(vp.size) { i -> vp[i] }
+                    val score = VectorSearchService.cosineSimilarity(centroid, vpArr)
+                    if (score > 0.78f && score > bestScore) {
+                        bestScore = score
+                        bestProfile = profile
                     }
                 }
-
-                // 绑定样本与发言人身份
-                for ((sid, samples) in samplesBySpeaker) {
-                    val profile = speakerToProfile[sid] ?: continue
-                    for (vs in samples) {
-                        db.voiceSampleDao().update(
-                            vs.copy(speakerProfileId = profile.id)
-                        )
-                    }
+                if (bestProfile != null) {
+                    speakerToProfile[sid] = bestProfile
+                    speakerToName[sid] = bestProfile.name
                 }
+            }
 
-                // 组装新段落插入
-                val segments = computed.paras.map { p ->
-                    val colorIdx = if (p.speaker >= 0) (speakerToIndex[p.speaker] ?: 0) else 0
-                    val label = when {
-                        p.speaker >= 0 && speakerToName.containsKey(p.speaker) -> speakerToName[p.speaker]!!
-                        p.speaker >= 0 -> "发言人 ${colorIdx + 1}"
-                        else -> ""
-                    }
-                    val profile = speakerToProfile[p.speaker]
-                    TranscriptSegmentEntity(
-                        meetingId = meetingId,
-                        speakerLabel = label,
-                        speakerColorIndex = colorIdx,
-                        text = p.text,
-                        timestamp = p.start,
-                        endTimestamp = p.end,
-                        isFinal = true,
-                        speakerProfileId = profile?.id
+            // 绑定样本与发言人身份
+            for ((sid, samples) in samplesBySpeaker) {
+                val profile = speakerToProfile[sid] ?: continue
+                for (vs in samples) {
+                    db.voiceSampleDao().update(
+                        vs.copy(speakerProfileId = profile.id)
                     )
                 }
-                db.transcriptSegmentDao().insertAll(segments)
+            }
 
-                // 标记 DiarizationState 为 DONE (3)，清理 JSON
-                val currentMeeting = db.meetingRecordDao().getById(meetingId)
-                if (currentMeeting != null) {
-                    db.meetingRecordDao().update(
-                        currentMeeting.copy(
-                            diarizationState = 3,
-                            pendingDiarizationInputJson = null
-                        )
-                    )
+            // 组装新段落插入
+            val segments = computed.paras.map { p ->
+                val colorIdx = if (p.speaker >= 0) (speakerToIndex[p.speaker] ?: 0) else 0
+                val label = when {
+                    p.speaker >= 0 && speakerToName.containsKey(p.speaker) -> speakerToName[p.speaker]!!
+                    p.speaker >= 0 -> "发言人 ${colorIdx + 1}"
+                    else -> ""
                 }
+                val profile = speakerToProfile[p.speaker]
+                TranscriptSegmentEntity(
+                    meetingId = meetingId,
+                    speakerLabel = label,
+                    speakerColorIndex = colorIdx,
+                    text = p.text,
+                    timestamp = p.start,
+                    endTimestamp = p.end,
+                    isFinal = true,
+                    speakerProfileId = profile?.id
+                )
+            }
+            db.transcriptSegmentDao().insertAll(segments)
+
+            // 标记 DiarizationState 为 DONE (3)，清理 JSON
+            val currentMeeting = db.meetingRecordDao().getById(meetingId)
+            if (currentMeeting != null) {
+                db.meetingRecordDao().update(
+                    currentMeeting.copy(
+                        diarizationState = 3,
+                        pendingDiarizationInputJson = null
+                    )
+                )
             }
         }
 

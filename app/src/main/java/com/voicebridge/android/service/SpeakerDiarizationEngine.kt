@@ -172,18 +172,21 @@ class SpeakerDiarizationEngine private constructor() {
                     val f = seg.javaClass.getField("start")
                     f.getFloat(seg).toDouble()
                 } catch (e: Exception) {
+                    Log.e(TAG, "反射读取 start 属性失败，降级回退 0.0", e)
                     0.0
                 }
                 val endVal = try {
                     val f = seg.javaClass.getField("end")
                     f.getFloat(seg).toDouble()
                 } catch (e: Exception) {
+                    Log.e(TAG, "反射读取 end 属性失败，降级回退 0.0", e)
                     0.0
                 }
                 val spkVal = try {
                     val f = seg.javaClass.getField("speaker")
                     f.getInt(seg)
                 } catch (e: Exception) {
+                    Log.e(TAG, "反射读取 speaker 属性失败，降级回退 0", e)
                     0
                 }
                 turns.add(DiarizationService.SpeakerTurn(startVal, endVal, spkVal))

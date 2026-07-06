@@ -33,7 +33,41 @@ object PDFExportService {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
-                val printAdapter = webView.createPrintDocumentAdapter("VoiceBridge-$title")
+                val originalAdapter = webView.createPrintDocumentAdapter("VoiceBridge-$title")
+                
+                // 包装代理 Adapter 以拦截生命周期，确保在打印渲染完成后释放 WebView 堆外内存
+                val printAdapter = object : android.print.PrintDocumentAdapter() {
+                    override fun onStart() {
+                        originalAdapter.onStart()
+                    }
+                    override fun onLayout(
+                        oldAttributes: PrintAttributes?,
+                        newAttributes: PrintAttributes?,
+                        cancellationSignal: android.os.CancellationSignal?,
+                        callback: LayoutResultCallback?,
+                        extras: android.os.Bundle?
+                    ) {
+                        originalAdapter.onLayout(oldAttributes, newAttributes, cancellationSignal, callback, extras)
+                    }
+                    override fun onWrite(
+                        pages: Array<out android.print.PageRange>?,
+                        destination: android.os.ParcelFileDescriptor?,
+                        cancellationSignal: android.os.CancellationSignal?,
+                        callback: WriteResultCallback?
+                    ) {
+                        originalAdapter.onWrite(pages, destination, cancellationSignal, callback)
+                    }
+                    override fun onFinish() {
+                        originalAdapter.onFinish()
+                        webView.post {
+                            try {
+                                webView.destroy()
+                            } catch (e: Exception) {
+                                // 优雅降级忽略
+                            }
+                        }
+                    }
+                }
                 
                 // 配置标准 A4 页面与 300DPI 分辨率
                 val attributes = PrintAttributes.Builder()
