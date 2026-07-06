@@ -290,7 +290,7 @@ object TranscriptComposer {
         var curStart: Double? = null
         for (s in sentences) {
             if (curStart == null) curStart = s.start
-            curText += joinToken(curText, s.text)
+            curText = joinToken(curText, s.text)
             if (curText.length >= maxParagraphChars || s.gapAfter >= paragraphGap) {
                 paragraphs.add(ComposedParagraph(curText, curStart))
                 curText = ""
