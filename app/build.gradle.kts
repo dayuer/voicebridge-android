@@ -88,7 +88,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
     // Sherpa ONNX Speech-to-Text Engine
-    implementation("com.k2fsa.sherpa.onnx:sherpa-onnx:1.10.8")
+    implementation("com.github.k2-fsa:sherpa-onnx:1.10.8")
 
     // Testing
     testImplementation("junit:junit:4.13.2")
