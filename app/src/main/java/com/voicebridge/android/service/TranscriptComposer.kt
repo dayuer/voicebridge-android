@@ -35,7 +35,7 @@ data class ComposedParagraph(
  */
 object TranscriptComposer {
 
-    private val sentenceEnders = setOf('。', '！', '？', '!', '?', '…', '；', ';')
+    private val sentenceEnders = setOf('。', '！', '？', '!', '?', '…', '；', ';', '.')
 
     /**
      * 把 VAD 语音区间打包为解码窗口。
@@ -89,14 +89,14 @@ object TranscriptComposer {
     }
 
     /**
-     * 剥掉 ASR 自带的零散标点（统一重排前清理）；保留字符/数字，空白折叠为单空格
+     * 剥掉 ASR 自带的零散标点（统一重排前清理）；保留字符/数字，其他字符均以空格占位，最后进行空白折叠
      */
     fun stripPunctuation(text: String): String {
         val out = StringBuilder()
         for (ch in text) {
             if (ch.isLetter() || ch.isDigit()) {
                 out.append(ch)
-            } else if (ch.isWhitespace()) {
+            } else {
                 out.append(' ')
             }
         }
@@ -220,9 +220,15 @@ object TranscriptComposer {
             out.append(ch)
             prev = ch
         }
-        if (isStrongBoundary && out.isNotEmpty() && out.last() !in sentenceEnders) {
-            val hasChinese = out.any { it.code > 127 }
-            out.append(if (hasChinese) "。" else ".")
+        if (isStrongBoundary) {
+            // 在强边界下添加句号前，先剥除末尾所有不是字母/数字且不是现有结束符的杂乱标点字符（例如逗号）
+            while (out.isNotEmpty() && out.last() !in sentenceEnders && !(out.last().isLetter() || out.last().isDigit())) {
+                out.deleteCharAt(out.length - 1)
+            }
+            if (out.isNotEmpty() && out.last() !in sentenceEnders) {
+                val hasChinese = out.any { it.code > 127 }
+                out.append(if (hasChinese) "。" else ".")
+            }
         }
         return out.toString()
     }
