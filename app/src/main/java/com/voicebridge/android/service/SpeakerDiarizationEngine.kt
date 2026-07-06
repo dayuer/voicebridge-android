@@ -96,7 +96,7 @@ class SpeakerDiarizationEngine private constructor() {
                 minDurationOff = 0.5f
             )
 
-            diarization = OfflineSpeakerDiarization(config)
+            diarization = OfflineSpeakerDiarization(config = config)
             isReady = true
             Log.i(TAG, "pyannote 离线分离引擎加载成功")
             true
@@ -161,34 +161,13 @@ class SpeakerDiarizationEngine private constructor() {
         return try {
             Log.i(TAG, "开始计算 pyannote 话轮切分...")
             // 在 JNI 中计算
-            // 注意：Java 端的 process 可能返回一段 SpeakerSegment 对象列表
-            // 我们通过反射或常规接口抓取 [start, end, speaker]
             val rawSegments = diar.process(samples)
             
             val turns = ArrayList<DiarizationService.SpeakerTurn>()
             for (seg in rawSegments) {
-                // 根据 JNI 规范取字段
-                val startVal = try {
-                    val f = seg.javaClass.getField("start")
-                    f.getFloat(seg).toDouble()
-                } catch (e: Exception) {
-                    Log.e(TAG, "反射读取 start 属性失败，降级回退 0.0", e)
-                    0.0
-                }
-                val endVal = try {
-                    val f = seg.javaClass.getField("end")
-                    f.getFloat(seg).toDouble()
-                } catch (e: Exception) {
-                    Log.e(TAG, "反射读取 end 属性失败，降级回退 0.0", e)
-                    0.0
-                }
-                val spkVal = try {
-                    val f = seg.javaClass.getField("speaker")
-                    f.getInt(seg)
-                } catch (e: Exception) {
-                    Log.e(TAG, "反射读取 speaker 属性失败，降级回退 0", e)
-                    0
-                }
+                val startVal = seg.start.toDouble()
+                val endVal = seg.end.toDouble()
+                val spkVal = seg.speaker
                 turns.add(DiarizationService.SpeakerTurn(startVal, endVal, spkVal))
             }
 

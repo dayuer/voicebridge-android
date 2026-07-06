@@ -63,7 +63,7 @@ class SpeakerEmbeddingService private constructor() {
                 debug = false,
                 provider = "cpu"
             )
-            extractor = SpeakerEmbeddingExtractor(config)
+            extractor = SpeakerEmbeddingExtractor(config = config)
             isReady = true
             Log.i(TAG, "声纹提取引擎初始化就绪，维度: ${extractor?.dim()}")
             true

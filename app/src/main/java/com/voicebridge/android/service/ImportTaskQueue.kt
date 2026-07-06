@@ -16,6 +16,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
+import androidx.room.withTransaction
 import java.io.File
 import java.io.IOException
 
@@ -68,6 +70,12 @@ class ImportTaskQueue private constructor() {
     fun configure(db: VoiceBridgeDatabase) {
         this.database = db
     }
+
+    /**
+     * 队列中和执行中是否有任务
+     */
+    val hasIncompleteJobs: Boolean
+        get() = _activeJobId.value != null || queue.isNotEmpty()
 
     /**
      * 判断任务是否正在排队或执行中
@@ -227,36 +235,34 @@ class ImportTaskQueue private constructor() {
         val paragraphs = TranscriptComposer.compose(windows, punctuate)
 
         // 在数据库事务中进行原子删除旧段与添加新段
-        db.runInTransaction {
-            runBlocking {
-                // 删除旧的 segment
-                db.transcriptSegmentDao().deleteByMeetingId(job.meetingId)
-                
-                // 组装新段落插入
-                val segments = paragraphs.mapIndexed { idx, p ->
-                    TranscriptSegmentEntity(
-                        meetingId = job.meetingId,
-                        speakerLabel = "发言人 1", // 文本阶段默认为发言人 1
-                        speakerColorIndex = 0,
-                        text = p.text,
-                        timestamp = p.start,
-                        endTimestamp = p.start,
-                        isFinal = true
-                    )
-                }
-                db.transcriptSegmentDao().insertAll(segments)
+        db.withTransaction {
+            // 删除旧的 segment
+            db.transcriptSegmentDao().deleteByMeetingId(job.meetingId)
+            
+            // 组装新段落插入
+            val segments = paragraphs.mapIndexed { idx, p ->
+                TranscriptSegmentEntity(
+                    meetingId = job.meetingId,
+                    speakerLabel = "发言人 1", // 文本阶段默认为发言人 1
+                    speakerColorIndex = 0,
+                    text = p.text,
+                    timestamp = p.start,
+                    endTimestamp = p.start,
+                    isFinal = true
+                )
+            }
+            db.transcriptSegmentDao().insertAll(segments)
 
-                // 标记完成，触发 Diarization 队列 (DiarizationState.PENDING = 1)
-                val currentMeeting = db.meetingRecordDao().getById(job.meetingId)
-                if (currentMeeting != null) {
-                    db.meetingRecordDao().update(
-                        currentMeeting.copy(
-                            importProgress = 1.0,
-                            isCompleted = true,
-                            diarizationState = 1 // 说话人分离状态标为 Pending (等待声纹聚类)
-                        )
+            // 标记完成，触发 Diarization 队列 (DiarizationState.PENDING = 1)
+            val currentMeeting = db.meetingRecordDao().getById(job.meetingId)
+            if (currentMeeting != null) {
+                db.meetingRecordDao().update(
+                    currentMeeting.copy(
+                        importProgress = 1.0,
+                        isCompleted = true,
+                        diarizationState = 1 // 说话人分离状态标为 Pending (等待声纹聚类)
                     )
-                }
+                )
             }
         }
 

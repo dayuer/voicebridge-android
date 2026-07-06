@@ -34,6 +34,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.voicebridge.android.data.entity.TranscriptSegmentEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -304,7 +305,7 @@ fun SegmentRow(
     onRenameSpeaker: (String) -> Unit
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
-    var renameInput by remember { mutableStateOf(segment.speakerLabel) }
+    var renameInput by remember { mutableStateOf<String>(segment.speakerLabel) }
 
     val backgroundColor by animateColorAsState(
         targetValue = if (isActive) {
@@ -382,7 +383,7 @@ fun SegmentRow(
             text = {
                 OutlinedTextField(
                     value = renameInput,
-                    onValueChange = { renameInput = it },
+                    onValueChange = { newValue: String -> renameInput = newValue },
                     singleLine = true,
                     label = { Text("发言人姓名") }
                 )

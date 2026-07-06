@@ -2,14 +2,14 @@ package com.voicebridge.android.service
 
 import android.content.Context
 import android.util.Log
-import com.k2fsa.sherpa.onnx.OfflineFeatureConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineSenseVoiceModelConfig
 import com.k2fsa.sherpa.onnx.SileroVadModelConfig
+import com.k2fsa.sherpa.onnx.SpeechSegment
+import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
-import com.k2fsa.sherpa.onnx.VoiceActivityDetector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -110,18 +110,12 @@ class SherpaASRService private constructor() {
                 senseVoice = senseVoiceConfig
             )
 
-            val featConfig = OfflineFeatureConfig(
-                sampleRate = 16000,
-                featureDim = 80
-            )
-
             val recognizerConfig = OfflineRecognizerConfig(
-                featConfig = featConfig,
                 modelConfig = modelConfig,
                 decodingMethod = "greedy_search"
             )
 
-            offlineRecognizer = OfflineRecognizer(recognizerConfig)
+            offlineRecognizer = OfflineRecognizer(config = recognizerConfig)
             _isModelReady.value = true
             _modelStatusText.value = "就绪"
             _downloadProgress.value = 1.0
@@ -257,46 +251,22 @@ class SherpaASRService private constructor() {
 
         try {
             val vadConfig = VadModelConfig(
-                sileroVad = SileroVadModelConfig(model = vadModelPath),
-                sampleRate = 16000f
+                sileroVadModelConfig = SileroVadModelConfig(model = vadModelPath),
+                sampleRate = 16000
             )
-            // 配置 VAD 缓冲区
-            val detector = VoiceActivityDetector(vadConfig, 30.0f)
+            // 配置 VAD 缓冲区（bufferSizeInSeconds = 30 秒）
+            val detector = Vad(config = vadConfig, bufferSizeInSeconds = 30.0f)
             detector.acceptWaveform(samples)
             
             val regions = ArrayList<Pair<Double, Double>>()
-            while (!detector.isDetected()) {
-                // 等待或退出，通常 acceptWaveform 已经解析完
-                break
-            }
             
             // 循环获取被检测出的活动语音段
-            while (true) {
-                // 注意：在 Java SDK 中，可能需要调用 pop() 来取出 SpeechSegment
-                // 我们在 native 反馈中，如果没有 pop，我们可以根据 JNI 规范。
-                // 假设 detector.pop() 弹出一个 Segment 包含 start (样本索引) 和 samples (FloatArray)
-                // 很多版本的 pop() 会返回 Segment。
-                val segment = try {
-                    val method = detector.javaClass.getMethod("pop")
-                    method.invoke(detector)
-                } catch (e: Exception) {
-                    null
-                } ?: break
+            while (!detector.isEmpty()) {
+                val segment: SpeechSegment = detector.front()
+                detector.pop()
                 
-                // 取出 start 属性 (样本序列号)
-                val startSample = try {
-                    val field = segment.javaClass.getField("start")
-                    field.getInt(segment)
-                } catch (e: Exception) {
-                    0
-                }
-                
-                val segSamples = try {
-                    val field = segment.javaClass.getField("samples")
-                    field.get(segment) as FloatArray
-                } catch (e: Exception) {
-                    FloatArray(0)
-                }
+                val startSample = segment.start
+                val segSamples = segment.samples
                 
                 val duration = segSamples.size.toDouble() / 16000.0
                 val startTime = startSample.toDouble() / 16000.0

@@ -87,6 +87,9 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
+    // WorkManager (后台任务调度)
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
     // Sherpa ONNX Speech-to-Text Engine (JitPack 最新可用版本)
     implementation("com.github.k2-fsa:sherpa-onnx:1.13.3")
 

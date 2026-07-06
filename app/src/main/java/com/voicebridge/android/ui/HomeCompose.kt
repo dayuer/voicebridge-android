@@ -40,6 +40,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.Context
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -431,7 +433,7 @@ private suspend fun copyAudioFileToSandbox(context: Context, uri: Uri): String? 
         } else null
     } ?: "imported_audio_${System.currentTimeMillis()}.m4a"
 
-    val destFile = File(recordingsDir, displayName)
+    val destFile = File(recordingsDir.absolutePath, displayName)
     try {
         resolver.openInputStream(uri)?.use { input ->
             FileOutputStream(destFile).use { output ->

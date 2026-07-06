@@ -10,6 +10,7 @@ import com.voicebridge.android.data.entity.TranscriptSegmentEntity
 import com.voicebridge.android.data.entity.VoiceSampleEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.take
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -366,7 +367,7 @@ object TranscriptFinalizer {
             val sid = getSpeakerFor(ordered[i])
             val group = ArrayList<CodableRawSeg>()
             while (i < ordered.size && getSpeakerFor(ordered[i]) == sid) {
-                group.append(ordered[i])
+                group.add(ordered[i])
                 i++
             }
             val composed = TranscriptComposer.compose(makeWindows(group), punctuate)
@@ -489,7 +490,7 @@ object TranscriptFinalizer {
     // Flow 拓展取首个值
     private suspend fun <T> kotlinx.coroutines.flow.Flow<T>.firstOrNull(): T? {
         var result: T? = null
-        kotlinx.coroutines.flow.take(1).collect { result = it }
+        this.take(1).collect { result = it }
         return result
     }
 }

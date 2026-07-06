@@ -278,7 +278,7 @@ object DiarizationService {
 
             val slices = partition(
                 segment = SegmentRef(segStart, segEnd, seg.fourth),
-                by = overlapping
+                turns = overlapping
             )
             if (slices.isEmpty()) continue
 

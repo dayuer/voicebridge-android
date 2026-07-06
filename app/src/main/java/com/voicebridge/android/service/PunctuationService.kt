@@ -51,7 +51,7 @@ class PunctuationService private constructor() {
         
         val punct = loadIfNeeded(context) ?: return null
         return try {
-            val out = punct.addPunct(trimmed)
+            val out = punct.addPunctuation(trimmed)
             if (out.isEmpty()) null else out
         } catch (e: Exception) {
             Log.e(TAG, "标点恢复推理异常: ${e.message}")
@@ -77,7 +77,7 @@ class PunctuationService private constructor() {
                 numThreads = 2
             )
             val config = OfflinePunctuationConfig(model = modelConfig)
-            val p = OfflinePunctuation(config)
+            val p = OfflinePunctuation(config = config)
             Log.i(TAG, "CT-Transformer 标点模型就绪")
             offlinePunctuation = p
             p

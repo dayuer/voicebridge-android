@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.take
 import java.io.File
 import java.io.IOException
 
@@ -192,7 +193,7 @@ class DiarizationTaskQueue private constructor() {
     // 辅助 Flow 拓展取首个值
     private suspend fun <T> kotlinx.coroutines.flow.Flow<T>.firstOrNull(): T? {
         var result: T? = null
-        kotlinx.coroutines.flow.take(1).collect { result = it }
+        this.take(1).collect { result = it }
         return result
     }
 }
