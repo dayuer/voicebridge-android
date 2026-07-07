@@ -52,6 +52,7 @@ import kotlin.math.abs
 fun SettingsCompose(
     db: VoiceBridgeDatabase,
     initialSubView: String? = null,
+    onRevokePrivacy: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -177,6 +178,45 @@ fun SettingsCompose(
                                 iconBgColor = Color(0xFF34C759), // 经典 iOS 绿色
                                 onClick = { currentSubView = "diagnostics" }
                             )
+
+                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
+
+                            // 服务与隐私授权
+                            var showRevokeConfirm by remember { mutableStateOf(false) }
+
+                            PremiumSettingsRow(
+                                title = "服务与隐私授权",
+                                subtitle = "已授权服务与隐私协议·可撤销",
+                                trailingText = "管理",
+                                icon = Icons.Default.Lock,
+                                iconBgColor = Color(0xFFFF9500), // 经典 iOS 橙色
+                                onClick = { showRevokeConfirm = true }
+                            )
+
+                            if (showRevokeConfirm) {
+                                AlertDialog(
+                                    onDismissRequest = { showRevokeConfirm = false },
+                                    title = { Text("撤销服务与隐私授权？", fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary) },
+                                    text = { Text("撤销服务与隐私授权后，AI 智能纪要功能将锁定不可用，且下次启动 App 时将重新征求同意。") },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                val prefs = context.getSharedPreferences("voicebridge_settings", Context.MODE_PRIVATE)
+                                                prefs.edit().putBoolean("has_agreed_privacy", false).apply()
+                                                showRevokeConfirm = false
+                                                onRevokePrivacy()
+                                            }
+                                        ) {
+                                            Text("确认撤销", color = Color(0xFFFF3B30), fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showRevokeConfirm = false }) {
+                                            Text("取消", color = VoiceBridgeTheme.textSecondary)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

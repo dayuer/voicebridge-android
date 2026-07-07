@@ -8,10 +8,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.room.Room
+import android.content.Context
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.ui.HomeCompose
 import com.voicebridge.android.ui.MeetingDetailCompose
 import com.voicebridge.android.ui.SettingsCompose
+import com.voicebridge.android.ui.PrivacyConsentCompose
 import com.voicebridge.android.ui.theme.VoiceBridgeTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,30 +30,43 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             VoiceBridgeTheme {
-                var currentMeetingId by remember { mutableStateOf<String?>(null) }
-                var settingsSubView by remember { mutableStateOf<String?>(null) }
+                val prefs = remember { getSharedPreferences("voicebridge_settings", Context.MODE_PRIVATE) }
+                var hasAgreedPrivacy by remember { mutableStateOf(prefs.getBoolean("has_agreed_privacy", false)) }
 
-                if (settingsSubView != null) {
-                    SettingsCompose(
-                        db = db,
-                        initialSubView = settingsSubView,
-                        onBack = { settingsSubView = null }
+                if (!hasAgreedPrivacy) {
+                    PrivacyConsentCompose(
+                        onAgree = { hasAgreedPrivacy = true }
                     )
                 } else {
-                    val meetingId = currentMeetingId
-                    if (meetingId != null) {
-                        MeetingDetailCompose(
-                            meetingId = meetingId,
+                    var currentMeetingId by remember { mutableStateOf<String?>(null) }
+                    var settingsSubView by remember { mutableStateOf<String?>(null) }
+
+                    if (settingsSubView != null) {
+                        SettingsCompose(
                             db = db,
-                            onBack = { currentMeetingId = null }
+                            initialSubView = settingsSubView,
+                            onRevokePrivacy = {
+                                hasAgreedPrivacy = false
+                                settingsSubView = null
+                            },
+                            onBack = { settingsSubView = null }
                         )
                     } else {
-                        HomeCompose(
-                            db = db,
-                            onNavigateToDetail = { id -> currentMeetingId = id },
-                            onNavigateToSettings = { settingsSubView = "" },
-                            onNavigateToDiagnostics = { settingsSubView = "diagnostics" }
-                        )
+                        val meetingId = currentMeetingId
+                        if (meetingId != null) {
+                            MeetingDetailCompose(
+                                meetingId = meetingId,
+                                db = db,
+                                onBack = { currentMeetingId = null }
+                            )
+                        } else {
+                            HomeCompose(
+                                db = db,
+                                onNavigateToDetail = { id -> currentMeetingId = id },
+                                onNavigateToSettings = { settingsSubView = "" },
+                                onNavigateToDiagnostics = { settingsSubView = "diagnostics" }
+                            )
+                        }
                     }
                 }
             }
