@@ -64,6 +64,12 @@ interface TranscriptSegmentDao {
 
     @Query("SELECT * FROM transcript_segments WHERE meeting_id = :meetingId ORDER BY timestamp ASC")
     fun getSegmentsByMeetingId(meetingId: String): Flow<List<TranscriptSegmentEntity>>
+
+    @Query("SELECT * FROM transcript_segments WHERE meeting_id = :meetingId ORDER BY timestamp ASC")
+    suspend fun getSegmentsByMeetingIdOnce(meetingId: String): List<TranscriptSegmentEntity>
+
+    @Query("SELECT * FROM transcript_segments WHERE speaker_profile_id = :profileId")
+    suspend fun getSegmentsByProfileIdOnce(profileId: String): List<TranscriptSegmentEntity>
 }
 
 @Dao
@@ -104,6 +110,12 @@ interface VoiceSampleDao {
 
     @Query("SELECT * FROM voice_samples WHERE meeting_id = :meetingId ORDER BY start_time ASC")
     fun getSamplesByMeetingId(meetingId: String): Flow<List<VoiceSampleEntity>>
+
+    @Query("SELECT * FROM voice_samples WHERE speaker_profile_id IS NULL ORDER BY start_time DESC")
+    suspend fun getUnassignedSamplesOnce(): List<VoiceSampleEntity>
+
+    @Query("SELECT * FROM voice_samples WHERE speaker_profile_id = :profileId")
+    suspend fun getSamplesByProfileIdOnce(profileId: String): List<VoiceSampleEntity>
 }
 
 @Dao
