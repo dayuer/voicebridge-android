@@ -22,6 +22,10 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -156,7 +160,7 @@ fun HomeCompose(
                     onClick = { selectedTab = 0 },
                     icon = {
                         Icon(
-                            painter = painterResource(id = android.R.drawable.ic_btn_speak_now),
+                            imageVector = Icons.Default.Create,
                             contentDescription = "录音",
                             tint = if (selectedTab == 0) VoiceBridgeTheme.accent else VoiceBridgeTheme.textDisabled
                         )
@@ -177,7 +181,7 @@ fun HomeCompose(
                     onClick = { selectedTab = 1 },
                     icon = {
                         Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_agenda),
+                            imageVector = Icons.Default.List,
                             contentDescription = "纪要",
                             tint = if (selectedTab == 1) VoiceBridgeTheme.accent else VoiceBridgeTheme.textDisabled
                         )
@@ -305,7 +309,7 @@ fun RecordingLibraryView(
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
                         Icon(
-                            painter = painterResource(id = android.R.drawable.stat_sys_download),
+                            imageVector = Icons.Default.Add,
                             contentDescription = "导入",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
@@ -370,7 +374,7 @@ fun RecordingLibraryView(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = android.R.drawable.ic_btn_speak_now),
+                        imageVector = Icons.Default.Create,
                         contentDescription = "空状态",
                         tint = VoiceBridgeTheme.textDisabled,
                         modifier = Modifier.size(48.dp)
@@ -499,7 +503,7 @@ fun RecordingLibraryRow(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            painter = painterResource(id = android.R.drawable.ic_menu_recent_history),
+                            imageVector = Icons.Default.Info,
                             contentDescription = "时长",
                             tint = VoiceBridgeTheme.textTertiary,
                             modifier = Modifier.size(10.dp)
@@ -719,7 +723,7 @@ fun MeetingRecordsListView(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = android.R.drawable.ic_menu_agenda),
+                        imageVector = Icons.Default.List,
                         contentDescription = "空状态",
                         tint = VoiceBridgeTheme.textDisabled,
                         modifier = Modifier.size(44.dp)
@@ -820,7 +824,7 @@ fun MeetingCard(
                     }
                 } else {
                     Icon(
-                        painter = painterResource(id = android.R.drawable.checkbox_on_background),
+                        imageVector = Icons.Default.CheckCircle,
                         contentDescription = "完成",
                         tint = VoiceBridgeTheme.success,
                         modifier = Modifier.size(16.dp)
@@ -849,7 +853,7 @@ fun MeetingCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = android.R.drawable.ic_menu_my_calendar),
+                        imageVector = Icons.Default.Info,
                         contentDescription = "时间",
                         tint = VoiceBridgeTheme.textDisabled,
                         modifier = Modifier.size(12.dp)
@@ -866,7 +870,7 @@ fun MeetingCard(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        painter = painterResource(id = android.R.drawable.ic_menu_recent_history),
+                        imageVector = Icons.Default.Info,
                         contentDescription = "时长",
                         tint = VoiceBridgeTheme.textDisabled,
                         modifier = Modifier.size(12.dp)

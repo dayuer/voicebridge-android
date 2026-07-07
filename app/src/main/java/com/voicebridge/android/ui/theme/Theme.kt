@@ -96,7 +96,5 @@ object VoiceBridgeTheme {
 
 @Composable
 fun VoiceBridgeTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(
-        content = content
-    )
+    content()
 }
