@@ -11,6 +11,7 @@ import androidx.room.Room
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.ui.HomeCompose
 import com.voicebridge.android.ui.MeetingDetailCompose
+import com.voicebridge.android.ui.SettingsCompose
 import com.voicebridge.android.ui.theme.VoiceBridgeTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,19 +29,28 @@ class MainActivity : ComponentActivity() {
         setContent {
             VoiceBridgeTheme {
                 var currentMeetingId by remember { mutableStateOf<String?>(null) }
+                var isSettingsOpen by remember { mutableStateOf(false) }
 
-                val meetingId = currentMeetingId
-                if (meetingId != null) {
-                    MeetingDetailCompose(
-                        meetingId = meetingId,
+                if (isSettingsOpen) {
+                    SettingsCompose(
                         db = db,
-                        onBack = { currentMeetingId = null }
+                        onBack = { isSettingsOpen = false }
                     )
                 } else {
-                    HomeCompose(
-                        db = db,
-                        onNavigateToDetail = { id -> currentMeetingId = id }
-                    )
+                    val meetingId = currentMeetingId
+                    if (meetingId != null) {
+                        MeetingDetailCompose(
+                            meetingId = meetingId,
+                            db = db,
+                            onBack = { currentMeetingId = null }
+                        )
+                    } else {
+                        HomeCompose(
+                            db = db,
+                            onNavigateToDetail = { id -> currentMeetingId = id },
+                            onNavigateToSettings = { isSettingsOpen = true }
+                        )
+                    }
                 }
             }
         }

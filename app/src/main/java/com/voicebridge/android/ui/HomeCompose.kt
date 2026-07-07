@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,7 +61,8 @@ import java.util.*
 @Composable
 fun HomeCompose(
     db: VoiceBridgeDatabase,
-    onNavigateToDetail: (String) -> Unit
+    onNavigateToDetail: (String) -> Unit,
+    onNavigateToSettings: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var records by remember { mutableStateOf<List<MeetingRecordComplete>>(emptyList()) }
@@ -135,12 +137,12 @@ fun HomeCompose(
                                 .size(32.dp)
                                 .background(VoiceBridgeTheme.bgSurface, shape = CircleShape)
                                 .clickable {
-                                    Toast.makeText(context, "设置模块已自动与系统偏好对齐", Toast.LENGTH_SHORT).show()
+                                    onNavigateToSettings()
                                 },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                                imageVector = Icons.Default.Settings,
                                 contentDescription = "设置",
                                 tint = VoiceBridgeTheme.textSecondary,
                                 modifier = Modifier.size(16.dp)
