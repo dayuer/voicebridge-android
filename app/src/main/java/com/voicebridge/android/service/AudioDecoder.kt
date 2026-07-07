@@ -63,8 +63,9 @@ object AudioDecoder {
             codec.configure(format, null, null, 0)
             codec.start()
 
-            // 临时容器用于累积解码的 Short 数组
-            val decodedShorts = ArrayList<Short>()
+            // 临时容器用于累积解码的 Short 数组块，避免 ArrayList<Short> 的装箱开销导致的 OOM
+            val decodedChunks = ArrayList<ShortArray>()
+            var totalShorts = 0
             val bufferInfo = MediaCodec.BufferInfo()
             var isInputEOS = false
             var isOutputEOS = false
@@ -118,9 +119,8 @@ object AudioDecoder {
                         val shortBuffer = outputBuffer.order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
                         val temp = ShortArray(shortBuffer.remaining())
                         shortBuffer.get(temp)
-                        for (s in temp) {
-                            decodedShorts.add(s)
-                        }
+                        decodedChunks.add(temp)
+                        totalShorts += temp.size
                     }
 
                     codec.releaseOutputBuffer(outputBufferIndex, false)
@@ -133,7 +133,12 @@ object AudioDecoder {
                 }
             }
 
-            val rawSamples = decodedShorts.shortArray()
+            val rawSamples = ShortArray(totalShorts)
+            var offset = 0
+            for (chunk in decodedChunks) {
+                System.arraycopy(chunk, 0, rawSamples, offset, chunk.size)
+                offset += chunk.size
+            }
             // 1. 降轨至单声道 Mono
             val monoSamples = toMono(rawSamples, channelCount)
             // 2. 归一化至 Float [-1.0, 1.0]
@@ -163,14 +168,6 @@ object AudioDecoder {
             }
         }
         return -1
-    }
-
-    private fun ArrayList<Short>.shortArray(): ShortArray {
-        val array = ShortArray(this.size)
-        for (i in 0 until this.size) {
-            array[i] = this[i]
-        }
-        return array
     }
 
     /**
