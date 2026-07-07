@@ -7,6 +7,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import com.voicebridge.android.data.SettingsStore
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.data.entity.MeetingRecordEntity
 import com.voicebridge.android.service.ImportTaskQueue
@@ -74,13 +75,15 @@ class ShareImportActivity : ComponentActivity() {
                 // 2. 写入 Room 数据库
                 val meetingId = UUID.randomUUID().toString()
                 val fileName = File(localPath).name
+                val defaultLanguage = SettingsStore.getDefaultLanguage(this@ShareImportActivity)
                 val meeting = MeetingRecordEntity(
                     id = meetingId,
                     title = "导入-$fileName",
                     startTime = Date(),
                     audioFilePath = localPath,
                     importProgress = 0.0,
-                    isCompleted = false
+                    isCompleted = false,
+                    importLanguageCode = defaultLanguage?.rawValue
                 )
 
                 // 我们动态静态构造 Room，这里采用 Hilt 或 buildDatabase
@@ -99,7 +102,7 @@ class ShareImportActivity : ComponentActivity() {
                 queue.configure(db)
                 queue.enqueue(
                     applicationContext,
-                    ImportTaskQueue.ImportJob(meetingId, localPath, null)
+                    ImportTaskQueue.ImportJob(meetingId, localPath, defaultLanguage)
                 )
 
                 Toast.makeText(this@ShareImportActivity, "导入成功，已在后台自动排队转写", Toast.LENGTH_LONG).show()

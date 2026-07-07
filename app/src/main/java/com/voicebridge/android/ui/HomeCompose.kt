@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.voicebridge.android.data.SettingsStore
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.data.relation.MeetingRecordComplete
 import com.voicebridge.android.data.entity.MeetingRecordEntity
@@ -296,13 +297,15 @@ fun RecordingLibraryView(
                     if (localPath != null) {
                         val meetingId = UUID.randomUUID().toString()
                         val fileName = File(localPath).name
+                        val defaultLanguage = SettingsStore.getDefaultLanguage(context)
                         val meeting = MeetingRecordEntity(
                             id = meetingId,
                             title = fileName,
                             startTime = Date(),
                             audioFilePath = localPath,
                             importProgress = 0.0,
-                            isCompleted = false
+                            isCompleted = false,
+                            importLanguageCode = defaultLanguage?.rawValue
                         )
 
                         withContext(Dispatchers.IO) {
@@ -313,7 +316,7 @@ fun RecordingLibraryView(
                         queue.configure(db)
                         queue.enqueue(
                             context,
-                            ImportTaskQueue.ImportJob(meetingId, localPath, null)
+                            ImportTaskQueue.ImportJob(meetingId, localPath, defaultLanguage)
                         )
                         Toast.makeText(context, "📥 音频已加入后台排队转译", Toast.LENGTH_SHORT).show()
                     } else {

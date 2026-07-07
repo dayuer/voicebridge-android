@@ -2,6 +2,7 @@ package com.voicebridge.android.ui
 
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,9 +24,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.voicebridge.android.data.SettingsStore
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.data.entity.GlossaryEntryEntity
 import com.voicebridge.android.data.entity.SpeakerProfileEntity
+import com.voicebridge.android.data.entity.SupportedLanguage
+import com.voicebridge.android.ui.theme.AppAppearance
 import com.voicebridge.android.ui.theme.VoiceBridgeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.take
@@ -49,6 +53,11 @@ fun SettingsCompose(
     var currentSubView by remember { mutableStateOf<String?>(if (initialSubView.isNullOrEmpty()) null else initialSubView) }
     var glossaryList by remember { mutableStateOf<List<GlossaryEntryEntity>>(emptyList()) }
     var speakerList by remember { mutableStateOf<List<SpeakerProfileEntity>>(emptyList()) }
+
+    // 系统返回键：子页先回设置根页，根页再交还上层
+    BackHandler {
+        if (currentSubView != null) currentSubView = null else onBack()
+    }
 
     LaunchedEffect(Unit) {
         db.glossaryEntryDao().getAllEntries().collect { list -> glossaryList = list }
@@ -89,19 +98,81 @@ fun SettingsCompose(
                     .padding(paddingValues),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                // Section: 会议与识别
-                item { SettingsSectionHeader("会议与识别") }
-                
+                // Section: 外观
+                item { SettingsSectionHeader("外观") }
+
                 item {
+                    var appearance by remember { mutableStateOf(SettingsStore.getAppearance(context)) }
                     ListItem(
-                        headlineContent = { Text("默认识别语言") },
-                        supportingContent = { Text("导入音频时的默认语种") },
-                        trailingContent = { Text("自动检测", color = MaterialTheme.colorScheme.primary) },
-                        leadingContent = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        modifier = Modifier.clickable {
-                            Toast.makeText(context, "已默认为自动语种识别", Toast.LENGTH_SHORT).show()
+                        headlineContent = { Text("主题外观") },
+                        leadingContent = { Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        trailingContent = {
+                            SingleChoiceSegmentedButtonRow {
+                                AppAppearance.entries.forEachIndexed { index, mode ->
+                                    SegmentedButton(
+                                        selected = appearance == mode,
+                                        onClick = {
+                                            appearance = mode
+                                            SettingsStore.setAppearance(context, mode)
+                                        },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = AppAppearance.entries.size)
+                                    ) { Text(mode.displayName, fontSize = 12.sp) }
+                                }
+                            }
                         }
                     )
+                }
+
+                // Section: 会议与识别
+                item { SettingsSectionHeader("会议与识别") }
+
+                item {
+                    var defaultLanguage by remember { mutableStateOf(SettingsStore.getDefaultLanguage(context)) }
+                    var showLanguageMenu by remember { mutableStateOf(false) }
+                    Box {
+                        ListItem(
+                            headlineContent = { Text("默认识别语言") },
+                            supportingContent = { Text("导入音频时的默认语种") },
+                            trailingContent = {
+                                Text(
+                                    text = defaultLanguage?.let { "${it.flag} ${it.displayName}" } ?: "🤖 自动检测",
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            leadingContent = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            modifier = Modifier.clickable { showLanguageMenu = true }
+                        )
+                        DropdownMenu(
+                            expanded = showLanguageMenu,
+                            onDismissRequest = { showLanguageMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("🤖 自动检测") },
+                                trailingIcon = {
+                                    if (defaultLanguage == null) Icon(Icons.Default.Check, contentDescription = null)
+                                },
+                                onClick = {
+                                    defaultLanguage = null
+                                    SettingsStore.setDefaultLanguage(context, null)
+                                    showLanguageMenu = false
+                                }
+                            )
+                            HorizontalDivider()
+                            SupportedLanguage.entries.forEach { lang ->
+                                DropdownMenuItem(
+                                    text = { Text("${lang.flag} ${lang.displayName}") },
+                                    trailingIcon = {
+                                        if (defaultLanguage == lang) Icon(Icons.Default.Check, contentDescription = null)
+                                    },
+                                    onClick = {
+                                        defaultLanguage = lang
+                                        SettingsStore.setDefaultLanguage(context, lang)
+                                        showLanguageMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
 
                 item {
@@ -164,8 +235,7 @@ fun SettingsCompose(
                             confirmButton = {
                                 TextButton(
                                     onClick = {
-                                        context.getSharedPreferences("voicebridge_settings", Context.MODE_PRIVATE)
-                                            .edit().putBoolean("has_agreed_privacy", false).apply()
+                                        SettingsStore.setPrivacyConsent(context, false)
                                         showRevokeConfirm = false
                                         onRevokePrivacy()
                                     }

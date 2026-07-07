@@ -2,6 +2,7 @@ package com.voicebridge.android.ui
 
 import android.app.Activity
 import android.content.Context
+import com.voicebridge.android.data.SettingsStore
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -179,8 +180,7 @@ fun PrivacyConsentCompose(
                     Button(
                         onClick = {
                             if (hasCheckedConsent) {
-                                val prefs = context.getSharedPreferences("voicebridge_settings", Context.MODE_PRIVATE)
-                                prefs.edit().putBoolean("has_agreed_privacy", true).apply()
+                                SettingsStore.setPrivacyConsent(context, true)
                                 onAgree()
                             }
                         },
