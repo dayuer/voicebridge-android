@@ -243,7 +243,10 @@ fun RecordingLibraryView(
         if (uri != null) {
             scope.launch {
                 isImporting = true
-                val localPath = copyAudioFileToSandbox(context, uri)
+                var errMsg: String? = null
+                val localPath = copyAudioFileToSandbox(context, uri) { err ->
+                    errMsg = err
+                }
                 if (localPath != null) {
                     val meetingId = UUID.randomUUID().toString()
                     val fileName = File(localPath).name
@@ -268,7 +271,7 @@ fun RecordingLibraryView(
                     )
                     Toast.makeText(context, "📥 音频已加入后台排队转译", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "❌ 复制文件到沙盒失败", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "❌ 复制文件到沙盒失败: ${errMsg ?: "未知错误"}", Toast.LENGTH_LONG).show()
                 }
                 isImporting = false
             }
@@ -916,12 +919,28 @@ fun MeetingCard(
 }
 
 // 物理拷贝 Uri 到沙盒目录
-private suspend fun copyAudioFileToSandbox(context: Context, uri: Uri): String? = withContext(Dispatchers.IO) {
+private suspend fun copyAudioFileToSandbox(
+    context: Context,
+    uri: Uri,
+    onError: (String) -> Unit
+): String? = withContext(Dispatchers.IO) {
     val resolver = context.contentResolver
     val recordingsDir = File(context.filesDir, "Documents/Recordings")
-    if (!recordingsDir.exists()) recordingsDir.mkdirs()
+    if (!recordingsDir.exists()) {
+        val created = recordingsDir.mkdirs()
+        if (!created) {
+            onError("无法创建目录: ${recordingsDir.absolutePath}")
+            return@withContext null
+        }
+    }
 
-    val cursor = resolver.query(uri, null, null, null, null)
+    val cursor = try {
+        resolver.query(uri, null, null, null, null)
+    } catch (e: Exception) {
+        onError("查询 Uri 失败: ${e.message}")
+        null
+    }
+
     val displayName = cursor?.use {
         if (it.moveToFirst()) {
             val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
@@ -938,6 +957,7 @@ private suspend fun copyAudioFileToSandbox(context: Context, uri: Uri): String? 
         }
         "Documents/Recordings/$displayName"
     } catch (e: Exception) {
+        onError("写入文件失败: ${e.message}")
         null
     }
 }
