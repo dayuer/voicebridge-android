@@ -46,6 +46,7 @@
 *   `app/src/main/java/com/voicebridge/android/ui/ShareImportActivity.kt` : 拦截系统发送 Uri 分享，自动后台复制入库排队。
 *   `app/src/main/java/com/voicebridge/android/ui/HomeCompose.kt` : Compose 绘制双 Tab 主面板（纪要列表 + 文件导入去重）。
 *   `app/src/main/java/com/voicebridge/android/ui/MeetingDetailCompose.kt` : 详情页：MediaPlayer 控制、逐字稿播放定位与双击跳转、声纹跨会议重命名。
+*   `app/src/main/java/com/voicebridge/android/ui/theme/Theme.kt` : 自定义自适应明暗明暗设计令牌、Okabe-Ito 8色色盲安全调色板与 Compose Theme 包装器。
 
 ---
 
