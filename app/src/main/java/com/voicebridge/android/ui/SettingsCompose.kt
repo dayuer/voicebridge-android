@@ -863,3 +863,45 @@ fun DiagnosticsSubView(
         }
     }
 }
+
+data class FileDiagnostic(
+    val name: String,
+    val desc: String,
+    val exists: Boolean,
+    val size: String,
+    val path: String
+)
+
+fun getModelDiagnostics(context: Context): List<FileDiagnostic> {
+    val modelsDir = File(context.filesDir, "Models")
+    val files = listOf(
+        Pair("model.int8.onnx", "SenseVoice 识别模型"),
+        Pair("sense-voice-tokens.txt", "SenseVoice 分词表"),
+        Pair("silero_vad.onnx", "Silero 语音活动检测(VAD)"),
+        Pair("punct.int8.onnx", "CT-Transformer 标点恢复"),
+        Pair("3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx", "CAM++ 声纹特征提取"),
+        Pair("sherpa-onnx-pyannote-segmentation-3-0/model.onnx", "Pyannote 话轮分割模型")
+    )
+
+    return files.map { (relPath, desc) ->
+        val file = File(modelsDir, relPath)
+        val exists = file.exists() && file.length() > 0
+        val sizeStr = if (exists) {
+            val len = file.length().toDouble()
+            when {
+                len > 1024 * 1024 -> String.format("%.1f MB", len / (1024 * 1024))
+                len > 1024 -> String.format("%.1f KB", len / 1024)
+                else -> "$len B"
+            }
+        } else {
+            "0 B"
+        }
+        FileDiagnostic(
+            name = file.name,
+            desc = desc,
+            exists = exists,
+            size = sizeStr,
+            path = file.absolutePath
+        )
+    }
+}
