@@ -188,7 +188,7 @@ fun SettingsCompose(
                                 title = "服务与隐私授权",
                                 subtitle = "已授权服务与隐私协议·可撤销",
                                 trailingText = "管理",
-                                icon = Icons.Default.Lock,
+                                icon = Icons.Default.Info,
                                 iconBgColor = Color(0xFFFF9500), // 经典 iOS 橙色
                                 onClick = { showRevokeConfirm = true }
                             )
