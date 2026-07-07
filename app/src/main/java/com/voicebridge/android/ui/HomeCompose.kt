@@ -74,8 +74,10 @@ fun HomeCompose(
         }
     }
 
-    // ANE/ASR 引擎状态
-    val isModelReady by SherpaASRService.getInstance().isModelReady.collectAsState()
+    // ANE/ASR 引擎状态（检测本地离线模型文件包是否就绪）
+    val isModelReady = remember {
+        SherpaASRService.getInstance().isASRPackAvailable(context)
+    }
 
     Scaffold(
         topBar = {
