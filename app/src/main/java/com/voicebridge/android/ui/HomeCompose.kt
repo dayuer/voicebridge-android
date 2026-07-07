@@ -250,7 +250,7 @@ fun RecordingLibraryView(
 
     // 调起系统音频文件选择器
     val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
             val resolver = context.contentResolver
@@ -260,7 +260,7 @@ fun RecordingLibraryView(
                 resolver.openInputStream(uri)
             } catch (e: Exception) {
                 android.util.Log.e("HomeCompose", "Failed to open input stream synchronously: ${e.message}", e)
-                Toast.makeText(context, "❌ 打开音频源失败: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "❌ 打开音频源失败: [${e.javaClass.simpleName}] ${e.message}", Toast.LENGTH_LONG).show()
                 null
             }
 
@@ -342,7 +342,7 @@ fun RecordingLibraryView(
                     )
                 )
                 .clickable(enabled = !isImporting) {
-                    filePicker.launch("audio/*")
+                    filePicker.launch(arrayOf("audio/*"))
                 }
                 .padding(16.dp)
         ) {
