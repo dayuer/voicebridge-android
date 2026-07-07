@@ -97,7 +97,7 @@ fun SettingsCompose(
                         headlineContent = { Text("默认识别语言") },
                         supportingContent = { Text("导入音频时的默认语种") },
                         trailingContent = { Text("自动检测", color = MaterialTheme.colorScheme.primary) },
-                        leadingContent = { Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable {
                             Toast.makeText(context, "已默认为自动语种识别", Toast.LENGTH_SHORT).show()
                         }
@@ -108,7 +108,7 @@ fun SettingsCompose(
                     ListItem(
                         headlineContent = { Text("AI 提示词") },
                         supportingContent = { Text("管理智能纪要的 5 套默认模板") },
-                        leadingContent = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                        leadingContent = { Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
                         modifier = Modifier.clickable { currentSubView = "prompt" }
                     )
                 }
@@ -118,7 +118,7 @@ fun SettingsCompose(
                         headlineContent = { Text("自定义词库") },
                         supportingContent = { Text("添加专有名词提升纪要准确度") },
                         trailingContent = { Text("${glossaryList.size} 词条") },
-                        leadingContent = { Icon(Icons.Default.EditNote, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
+                        leadingContent = { Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
                         modifier = Modifier.clickable { currentSubView = "glossary" }
                     )
                 }
