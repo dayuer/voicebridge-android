@@ -73,6 +73,9 @@ fun MeetingDetailCompose(
     // AI App Launch Sheet 状态
     var showAIAppSheet by remember { mutableStateOf(false) }
 
+    // AI category tag index (used if there are existing aiItems)
+    var selectedAICategoryIndex by remember { mutableStateOf(0) }
+
     // 轮询播放进度
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
