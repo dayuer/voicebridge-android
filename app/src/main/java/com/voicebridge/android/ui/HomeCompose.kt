@@ -218,7 +218,7 @@ fun HomeCompose(
 fun RecordingLibraryView(
     db: VoiceBridgeDatabase,
     records: List<MeetingRecordComplete>,
-    scope: androidx.compose.runtime.CoroutineScope,
+    scope: kotlinx.coroutines.CoroutineScope,
     onNavigateToDetail: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -408,7 +408,7 @@ fun RecordingLibraryView(
 fun RecordingLibraryRow(
     complete: MeetingRecordComplete,
     db: VoiceBridgeDatabase,
-    scope: androidx.compose.runtime.CoroutineScope,
+    scope: kotlinx.coroutines.CoroutineScope,
     onNavigateToDetail: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -561,7 +561,7 @@ fun RecordingLibraryRow(
                                         .configure(db)
                                     DiarizationTaskQueue
                                         .getInstance()
-                                        .enqueue(record.id, record.audioFilePath ?: "")
+                                        .enqueue(context, record.id, record.audioFilePath)
                                 }
                         ) {
                             Text(
@@ -639,7 +639,7 @@ fun MeetingRecordsListView(
     records: List<MeetingRecordComplete>,
     onNavigateToDetail: (String) -> Unit,
     db: VoiceBridgeDatabase,
-    scope: androidx.compose.runtime.CoroutineScope
+    scope: kotlinx.coroutines.CoroutineScope
 ) {
     var searchText by remember { mutableStateOf("") }
     val completedMeetings = records.filter { it.meetingRecord.isCompleted }
@@ -760,7 +760,7 @@ fun MeetingCard(
     complete: MeetingRecordComplete,
     onClick: (String) -> Unit,
     db: VoiceBridgeDatabase,
-    scope: androidx.compose.runtime.CoroutineScope
+    scope: kotlinx.coroutines.CoroutineScope
 ) {
     val record = complete.meetingRecord
     val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
