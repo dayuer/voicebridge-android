@@ -935,41 +935,68 @@ private suspend fun copyAudioFileToSandbox(
     context: Context,
     uri: Uri,
     onError: (String) -> Unit
-): String? = withContext(Dispatchers.IO) {
+): String? {
     val resolver = context.contentResolver
-    val recordingsDir = File(context.filesDir, "Documents/Recordings")
-    if (!recordingsDir.exists()) {
-        val created = recordingsDir.mkdirs()
-        if (!created) {
-            onError("无法创建目录: ${recordingsDir.absolutePath}")
-            return@withContext null
-        }
-    }
-
-    val cursor = try {
-        resolver.query(uri, null, null, null, null)
+    
+    // 1. 在主线程/发起线程尝试打开输入流，确保临时 URI 读取权限在 binder 调用中有效
+    val inputStream = try {
+        resolver.openInputStream(uri)
     } catch (e: Exception) {
-        onError("查询 Uri 失败: ${e.message}")
-        null
+        android.util.Log.e("HomeCompose", "Failed to open input stream: ${e.message}", e)
+        onError("打开音频源失败: ${e.message}")
+        return null
     }
 
-    val displayName = cursor?.use {
-        if (it.moveToFirst()) {
-            val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            if (idx >= 0) it.getString(idx) else null
-        } else null
+    if (inputStream == null) {
+        onError("音频源数据流为空")
+        return null
+    }
+
+    // 2. 并在发起线程查询文件名
+    val rawName = try {
+        val cursor = resolver.query(uri, null, null, null, null)
+        cursor?.use {
+            if (it.moveToFirst()) {
+                val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                if (idx >= 0) it.getString(idx) else null
+            } else null
+        }
+    } catch (e: Exception) {
+        null
     } ?: "imported_audio_${System.currentTimeMillis()}.m4a"
 
-    val destFile = File(recordingsDir.absolutePath, displayName)
-    try {
-        resolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(destFile).use { output ->
-                input.copyTo(output)
+    // 净化文件名，提取纯文件名并移除非法字符，防止创建 FileOutputStream 时路径未找到
+    val cleanName = rawName.substringAfterLast('/').substringAfterLast('\\')
+    val displayName = if (cleanName.isBlank()) {
+        "imported_audio_${System.currentTimeMillis()}.m4a"
+    } else {
+        cleanName.replace(Regex("[\\\\/:*?\"<>|\\s]"), "_")
+    }
+
+    // 3. 在 IO 协程中进行文件物理读写
+    return withContext(Dispatchers.IO) {
+        val recordingsDir = File(context.filesDir, "Documents/Recordings")
+        if (!recordingsDir.exists()) {
+            val created = recordingsDir.mkdirs()
+            if (!created) {
+                try { inputStream.close() } catch (ex: Exception) {}
+                onError("无法创建沙盒目录: ${recordingsDir.absolutePath}")
+                return@withContext null
             }
         }
-        "Documents/Recordings/$displayName"
-    } catch (e: Exception) {
-        onError("写入文件失败: ${e.message}")
-        null
+
+        val destFile = File(recordingsDir, displayName)
+        try {
+            inputStream.use { input ->
+                FileOutputStream(destFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            "Documents/Recordings/$displayName"
+        } catch (e: Exception) {
+            android.util.Log.e("HomeCompose", "Failed to write file to sandbox: ${e.message}", e)
+            onError("写入文件失败: ${e.message}")
+            null
+        }
     }
 }
