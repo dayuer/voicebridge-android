@@ -256,21 +256,40 @@ class SherpaASRService private constructor() {
             )
             // 配置 VAD 缓冲区
             val detector = Vad(config = vadConfig)
-            detector.acceptWaveform(samples)
-            
             val regions = ArrayList<Pair<Double, Double>>()
             
-            // 循环获取被检测出的活动语音段
-            while (!detector.empty()) {
-                val segment: SpeechSegment = detector.front()
-                detector.pop()
+            // 循环喂入数据，每次 16000 采样点（1秒），避免 ONNX Runtime 分配过大张量导致 Native OOM 崩溃
+            val chunkSamples = 16000
+            var offset = 0
+            while (offset < samples.size) {
+                val end = (offset + chunkSamples).coerceAtMost(samples.size)
+                val chunk = samples.copyOfRange(offset, end)
+                detector.acceptWaveform(chunk)
                 
-                val startSample = segment.start
-                val segSamples = segment.samples
-                
-                val duration = segSamples.size.toDouble() / 16000.0
-                val startTime = startSample.toDouble() / 16000.0
-                regions.add(Pair(startTime, startTime + duration))
+                // 及时消费检测到的语音段，防止内部堆积
+                while (!detector.empty()) {
+                    val segment: SpeechSegment = detector.front()
+                    detector.pop()
+                    
+                    val duration = segment.samples.size.toDouble() / 16000.0
+                    val startTime = segment.start.toDouble() / 16000.0
+                    regions.add(Pair(startTime, startTime + duration))
+                }
+                offset += chunkSamples
+            }
+            
+            try {
+                // 尝试刷新最后可能的残留语音段
+                detector.javaClass.getMethod("flush").invoke(detector)
+                while (!detector.empty()) {
+                    val segment: SpeechSegment = detector.front()
+                    detector.pop()
+                    val duration = segment.samples.size.toDouble() / 16000.0
+                    val startTime = segment.start.toDouble() / 16000.0
+                    regions.add(Pair(startTime, startTime + duration))
+                }
+            } catch (e: Exception) {
+                // flush 方法可能在某些版本中不存在，忽略即可
             }
             
             detector.release()
