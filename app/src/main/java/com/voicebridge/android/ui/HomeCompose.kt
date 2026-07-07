@@ -253,39 +253,74 @@ fun RecordingLibraryView(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            scope.launch {
-                isImporting = true
-                var errMsg: String? = null
-                val localPath = copyAudioFileToSandbox(context, uri) { err ->
-                    errMsg = err
-                }
-                if (localPath != null) {
-                    val meetingId = UUID.randomUUID().toString()
-                    val fileName = File(localPath).name
-                    val meeting = MeetingRecordEntity(
-                        id = meetingId,
-                        title = fileName,
-                        startTime = Date(),
-                        audioFilePath = localPath,
-                        importProgress = 0.0,
-                        isCompleted = false
-                    )
+            val resolver = context.contentResolver
+            
+            // 1. 同步在主线程打开输入流，确保系统 Binder 临时读取权限在当前回调帧中绝对有效
+            val inputStream = try {
+                resolver.openInputStream(uri)
+            } catch (e: Exception) {
+                android.util.Log.e("HomeCompose", "Failed to open input stream synchronously: ${e.message}", e)
+                Toast.makeText(context, "❌ 打开音频源失败: ${e.message}", Toast.LENGTH_LONG).show()
+                null
+            }
 
-                    withContext(Dispatchers.IO) {
-                        db.meetingRecordDao().insert(meeting)
+            if (inputStream != null) {
+                // 2. 同步在当前帧查询文件名
+                val rawName = try {
+                    val cursor = resolver.query(uri, null, null, null, null)
+                    cursor?.use {
+                        if (it.moveToFirst()) {
+                            val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (idx >= 0) it.getString(idx) else null
+                        } else null
                     }
+                } catch (e: Exception) {
+                    null
+                } ?: "imported_audio_${System.currentTimeMillis()}.m4a"
 
-                    val queue = ImportTaskQueue.getInstance()
-                    queue.configure(db)
-                    queue.enqueue(
-                        context,
-                        ImportTaskQueue.ImportJob(meetingId, localPath, null)
-                    )
-                    Toast.makeText(context, "📥 音频已加入后台排队转译", Toast.LENGTH_SHORT).show()
+                // 净化文件名
+                val cleanName = rawName.substringAfterLast('/').substringAfterLast('\\')
+                val displayName = if (cleanName.isBlank()) {
+                    "imported_audio_${System.currentTimeMillis()}.m4a"
                 } else {
-                    Toast.makeText(context, "❌ 复制文件到沙盒失败: ${errMsg ?: "未知错误"}", Toast.LENGTH_LONG).show()
+                    cleanName.replace(Regex("[\\\\/:*?\"<>|\\s]"), "_")
                 }
-                isImporting = false
+
+                // 3. 异步拉起协程，转移至后台线程物理写入沙盒
+                scope.launch {
+                    isImporting = true
+                    var errMsg: String? = null
+                    val localPath = copyOpenedStreamToSandbox(context, inputStream, displayName) { err ->
+                        errMsg = err
+                    }
+                    if (localPath != null) {
+                        val meetingId = UUID.randomUUID().toString()
+                        val fileName = File(localPath).name
+                        val meeting = MeetingRecordEntity(
+                            id = meetingId,
+                            title = fileName,
+                            startTime = Date(),
+                            audioFilePath = localPath,
+                            importProgress = 0.0,
+                            isCompleted = false
+                        )
+
+                        withContext(Dispatchers.IO) {
+                            db.meetingRecordDao().insert(meeting)
+                        }
+
+                        val queue = ImportTaskQueue.getInstance()
+                        queue.configure(db)
+                        queue.enqueue(
+                            context,
+                            ImportTaskQueue.ImportJob(meetingId, localPath, null)
+                        )
+                        Toast.makeText(context, "📥 音频已加入后台排队转译", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "❌ 复制文件到沙盒失败: ${errMsg ?: "未知错误"}", Toast.LENGTH_LONG).show()
+                    }
+                    isImporting = false
+                }
             }
         }
     }
@@ -930,73 +965,34 @@ fun MeetingCard(
     }
 }
 
-// 物理拷贝 Uri 到沙盒目录
-private suspend fun copyAudioFileToSandbox(
+// 物理拷贝已打开的数据流到沙盒目录
+private suspend fun copyOpenedStreamToSandbox(
     context: Context,
-    uri: Uri,
+    inputStream: java.io.InputStream,
+    displayName: String,
     onError: (String) -> Unit
-): String? {
-    val resolver = context.contentResolver
-    
-    // 1. 在主线程/发起线程尝试打开输入流，确保临时 URI 读取权限在 binder 调用中有效
-    val inputStream = try {
-        resolver.openInputStream(uri)
-    } catch (e: Exception) {
-        android.util.Log.e("HomeCompose", "Failed to open input stream: ${e.message}", e)
-        onError("打开音频源失败: ${e.message}")
-        return null
-    }
-
-    if (inputStream == null) {
-        onError("音频源数据流为空")
-        return null
-    }
-
-    // 2. 并在发起线程查询文件名
-    val rawName = try {
-        val cursor = resolver.query(uri, null, null, null, null)
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val idx = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (idx >= 0) it.getString(idx) else null
-            } else null
+): String? = withContext(Dispatchers.IO) {
+    val recordingsDir = File(context.filesDir, "Documents/Recordings")
+    if (!recordingsDir.exists()) {
+        val created = recordingsDir.mkdirs()
+        if (!created) {
+            try { inputStream.close() } catch (ex: Exception) {}
+            onError("无法创建沙盒目录: ${recordingsDir.absolutePath}")
+            return@withContext null
         }
+    }
+
+    val destFile = File(recordingsDir, displayName)
+    try {
+        inputStream.use { input ->
+            FileOutputStream(destFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        "Documents/Recordings/$displayName"
     } catch (e: Exception) {
+        android.util.Log.e("HomeCompose", "Failed to write file to sandbox: ${e.message}", e)
+        onError("写入文件失败: ${e.message}")
         null
-    } ?: "imported_audio_${System.currentTimeMillis()}.m4a"
-
-    // 净化文件名，提取纯文件名并移除非法字符，防止创建 FileOutputStream 时路径未找到
-    val cleanName = rawName.substringAfterLast('/').substringAfterLast('\\')
-    val displayName = if (cleanName.isBlank()) {
-        "imported_audio_${System.currentTimeMillis()}.m4a"
-    } else {
-        cleanName.replace(Regex("[\\\\/:*?\"<>|\\s]"), "_")
-    }
-
-    // 3. 在 IO 协程中进行文件物理读写
-    return withContext(Dispatchers.IO) {
-        val recordingsDir = File(context.filesDir, "Documents/Recordings")
-        if (!recordingsDir.exists()) {
-            val created = recordingsDir.mkdirs()
-            if (!created) {
-                try { inputStream.close() } catch (ex: Exception) {}
-                onError("无法创建沙盒目录: ${recordingsDir.absolutePath}")
-                return@withContext null
-            }
-        }
-
-        val destFile = File(recordingsDir, displayName)
-        try {
-            inputStream.use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
-            "Documents/Recordings/$displayName"
-        } catch (e: Exception) {
-            android.util.Log.e("HomeCompose", "Failed to write file to sandbox: ${e.message}", e)
-            onError("写入文件失败: ${e.message}")
-            null
-        }
     }
 }
