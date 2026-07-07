@@ -7,6 +7,26 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
+    <!-- AI Apps 包名白名单 (用于检测是否安装及跨应用协同) -->
+    <queries>
+        <!-- ChatGPT -->
+        <package android:name="com.openai.chatgpt" />
+        <!-- Claude -->
+        <package android:name="com.anthropic.claude" />
+        <!-- Gemini -->
+        <package android:name="com.google.android.apps.bard" />
+        <!-- 豆包 (Doubao) -->
+        <package android:name="com.bytedance.mira.macaron" />
+        <!-- DeepSeek -->
+        <package android:name="com.deepseek.chat" />
+        <!-- Kimi -->
+        <package android:name="com.moonshot.kimi" />
+        <!-- 通义千问 (Tongyi) -->
+        <package android:name="com.alibaba.tongyi" />
+        <!-- 智谱清言 (Zhipu) -->
+        <package android:name="cn.zhipu.chatglm" />
+    </queries>
+
     <application
         android:name=".VoiceBridgeApplication"
         android:allowBackup="true"

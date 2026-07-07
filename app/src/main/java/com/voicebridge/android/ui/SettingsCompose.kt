@@ -2,25 +2,16 @@ package com.voicebridge.android.ui
 
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,8 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
@@ -41,7 +30,6 @@ import com.voicebridge.android.ui.theme.VoiceBridgeTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Date
 import java.util.UUID
@@ -58,21 +46,15 @@ fun SettingsCompose(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 状态定义
     var currentSubView by remember { mutableStateOf<String?>(if (initialSubView.isNullOrEmpty()) null else initialSubView) }
     var glossaryList by remember { mutableStateOf<List<GlossaryEntryEntity>>(emptyList()) }
     var speakerList by remember { mutableStateOf<List<SpeakerProfileEntity>>(emptyList()) }
 
-    // 从 Room 实时读取数据
     LaunchedEffect(Unit) {
-        db.glossaryEntryDao().getAllEntries().collect { list ->
-            glossaryList = list
-        }
+        db.glossaryEntryDao().getAllEntries().collect { list -> glossaryList = list }
     }
     LaunchedEffect(Unit) {
-        db.speakerProfileDao().getAllProfiles().collect { list ->
-            speakerList = list
-        }
+        db.speakerProfileDao().getAllProfiles().collect { list -> speakerList = list }
     }
 
     if (currentSubView == "glossary") {
@@ -81,217 +63,157 @@ fun SettingsCompose(
         SpeakerSubView(db = db, list = speakerList, onBack = { currentSubView = null })
     } else if (currentSubView == "diagnostics") {
         DiagnosticsSubView(context = context, onBack = { currentSubView = null })
+    } else if (currentSubView == "prompt") {
+        PromptManagementCompose(onNavigateUp = { currentSubView = null })
     } else {
         Scaffold(
             topBar = {
-                Surface(
-                    color = VoiceBridgeTheme.bgCanvas,
-                    modifier = Modifier.statusBarsPadding()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                LargeTopAppBar(
+                    title = { Text("设置", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = VoiceBridgeTheme.textPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                         }
-
-                        Text(
-                            text = "设置",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = VoiceBridgeTheme.textPrimary,
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.width(48.dp)) // 对齐占位
-                    }
-                }
+                    },
+                    colors = TopAppBarDefaults.largeTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
             },
-            containerColor = VoiceBridgeTheme.bgCanvas
+            containerColor = MaterialTheme.colorScheme.background
         ) { paddingValues ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                // 1. iOS 样式卡片列表：主要设置选项
+                // Section: 会议与识别
+                item { SettingsSectionHeader("会议与识别") }
+                
                 item {
-                    Surface(
-                        color = VoiceBridgeTheme.bgSurface,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(16.dp))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        ) {
-                            // 默认语种菜单
-                            PremiumSettingsRow(
-                                title = "默认识别语言",
-                                subtitle = "导入音频时的默认语种",
-                                trailingText = "自动检测",
-                                icon = Icons.Default.Info,
-                                iconBgColor = Color(0xFF007AFF), // 经典 iOS 蓝色
-                                onClick = {
-                                    Toast.makeText(context, "已默认为自动语种识别", Toast.LENGTH_SHORT).show()
-                                }
-                            )
+                    ListItem(
+                        headlineContent = { Text("默认识别语言") },
+                        supportingContent = { Text("导入音频时的默认语种") },
+                        trailingContent = { Text("自动检测", color = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable {
+                            Toast.makeText(context, "已默认为自动语种识别", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
 
-                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
+                item {
+                    ListItem(
+                        headlineContent = { Text("AI 提示词") },
+                        supportingContent = { Text("管理智能纪要的 5 套默认模板") },
+                        leadingContent = { Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary) },
+                        modifier = Modifier.clickable { currentSubView = "prompt" }
+                    )
+                }
 
-                            // 声纹管理入口
-                            PremiumSettingsRow(
-                                title = "声纹管理",
-                                subtitle = "管理离线声纹特征与发言人",
-                                trailingText = "${speakerList.size} 个发言人",
-                                icon = Icons.Default.CheckCircle,
-                                iconBgColor = Color(0xFF5856D6), // 经典 iOS 紫色
-                                onClick = { currentSubView = "speaker" }
-                            )
+                item {
+                    ListItem(
+                        headlineContent = { Text("自定义词库") },
+                        supportingContent = { Text("添加专有名词提升纪要准确度") },
+                        trailingContent = { Text("${glossaryList.size} 词条") },
+                        leadingContent = { Icon(Icons.Default.EditNote, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
+                        modifier = Modifier.clickable { currentSubView = "glossary" }
+                    )
+                }
 
-                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
+                item {
+                    ListItem(
+                        headlineContent = { Text("声纹管理") },
+                        supportingContent = { Text("管理离线声纹特征与发言人") },
+                        trailingContent = { Text("${speakerList.size} 个发言人") },
+                        leadingContent = { Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
+                        modifier = Modifier.clickable { currentSubView = "speaker" }
+                    )
+                }
 
-                            // 自定义词库入口
-                            PremiumSettingsRow(
-                                title = "自定义词库",
-                                subtitle = "添加专有名词提升纪要准确度",
-                                trailingText = "${glossaryList.size} 词条",
-                                icon = Icons.Default.Create,
-                                iconBgColor = Color(0xFFFF9500), // 经典 iOS 橙色
-                                onClick = { currentSubView = "glossary" }
-                            )
+                // Section: 系统与诊断
+                item { SettingsSectionHeader("系统与诊断") }
 
-                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
+                item {
+                    ListItem(
+                        headlineContent = { Text("离线引擎自检与诊断") },
+                        supportingContent = { Text("检查 6 个核心离线模型就绪情况") },
+                        leadingContent = { Icon(Icons.Default.HealthAndSafety, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { currentSubView = "diagnostics" }
+                    )
+                }
 
-                            // 离线引擎自检
-                            PremiumSettingsRow(
-                                title = "离线引擎自检与诊断",
-                                subtitle = "检查 6 个核心离线模型就绪情况",
-                                trailingText = "检查",
-                                icon = Icons.Default.Settings,
-                                iconBgColor = Color(0xFF34C759), // 经典 iOS 绿色
-                                onClick = { currentSubView = "diagnostics" }
-                            )
-
-                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
-
-                            // 服务与隐私授权
-                            var showRevokeConfirm by remember { mutableStateOf(false) }
-
-                            PremiumSettingsRow(
-                                title = "服务与隐私授权",
-                                subtitle = "已授权服务与隐私协议·可撤销",
-                                trailingText = "管理",
-                                icon = Icons.Default.Info,
-                                iconBgColor = Color(0xFFFF9500), // 经典 iOS 橙色
-                                onClick = { showRevokeConfirm = true }
-                            )
-
-                            if (showRevokeConfirm) {
-                                AlertDialog(
-                                    onDismissRequest = { showRevokeConfirm = false },
-                                    title = { Text("撤销服务与隐私授权？", fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary) },
-                                    text = { Text("撤销服务与隐私授权后，AI 智能纪要功能将锁定不可用，且下次启动 App 时将重新征求同意。") },
-                                    confirmButton = {
-                                        TextButton(
-                                            onClick = {
-                                                val prefs = context.getSharedPreferences("voicebridge_settings", Context.MODE_PRIVATE)
-                                                prefs.edit().putBoolean("has_agreed_privacy", false).apply()
-                                                showRevokeConfirm = false
-                                                onRevokePrivacy()
-                                            }
-                                        ) {
-                                            Text("确认撤销", color = Color(0xFFFF3B30), fontWeight = FontWeight.Bold)
-                                        }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = { showRevokeConfirm = false }) {
-                                            Text("取消", color = VoiceBridgeTheme.textSecondary)
-                                        }
+                item {
+                    var showRevokeConfirm by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text("服务与隐私授权") },
+                        supportingContent = { Text("已授权服务与隐私协议") },
+                        trailingContent = { Text("管理", color = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(Icons.Default.PrivacyTip, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        modifier = Modifier.clickable { showRevokeConfirm = true }
+                    )
+                    
+                    if (showRevokeConfirm) {
+                        AlertDialog(
+                            onDismissRequest = { showRevokeConfirm = false },
+                            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
+                            title = { Text("撤销授权？") },
+                            text = { Text("撤销后 AI 智能纪要功能将锁定不可用，下次启动时将重新征求同意。") },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        context.getSharedPreferences("voicebridge_settings", Context.MODE_PRIVATE)
+                                            .edit().putBoolean("has_agreed_privacy", false).apply()
+                                        showRevokeConfirm = false
+                                        onRevokePrivacy()
                                     }
-                                )
+                                ) { Text("确认撤销", color = MaterialTheme.colorScheme.error) }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showRevokeConfirm = false }) { Text("取消") }
                             }
-                        }
+                        )
                     }
                 }
 
-                // 2. 关于与产品信息卡片
+                // Section: 关于
+                item { SettingsSectionHeader("关于") }
+
                 item {
-                    Surface(
-                        color = VoiceBridgeTheme.bgSurface,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(16.dp))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                        ) {
-                            InfoRowItem(label = "软件版本", value = "1.0.0.2 (Build 10)")
-                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
-                            InfoRowItem(label = "识别引擎", value = "SenseVoice + Silero VAD")
-                            HorizontalDivider(color = VoiceBridgeTheme.separator.copy(alpha = 0.5f))
-                            InfoRowItem(label = "隐私合规", value = "100% 本地运行·无数据上传")
-                        }
-                    }
+                    ListItem(
+                        headlineContent = { Text("软件版本") },
+                        trailingContent = { Text("1.0.0.2 (Build 11)") }
+                    )
+                    ListItem(
+                        headlineContent = { Text("识别引擎") },
+                        trailingContent = { Text("SenseVoice + Silero VAD") }
+                    )
+                    ListItem(
+                        headlineContent = { Text("隐私合规") },
+                        trailingContent = { Text("100% 本地运行·无数据上传") }
+                    )
                 }
 
-                // 3. 调试与测试选项：清空历史声纹库
+                // Section: 调试
+                item { SettingsSectionHeader("调试") }
+
                 item {
                     var showClearConfirm by remember { mutableStateOf(false) }
-
-                    Surface(
-                        color = VoiceBridgeTheme.bgSurface,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(16.dp))
-                            .clickable { showClearConfirm = true }
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(Color(0xFFFF3B30), shape = RoundedCornerShape(8.dp)), // 经典 iOS 红色
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = "☠️", fontSize = 14.sp)
-                            }
-
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Text(
-                                    text = "清空所有历史声纹库",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFFF3B30)
-                                )
-                                Text(
-                                    text = "擦除所有已存声纹特征与归属，用于开发调试",
-                                    fontSize = 11.sp,
-                                    color = VoiceBridgeTheme.textTertiary
-                                )
-                            }
-                        }
-                    }
+                    ListItem(
+                        headlineContent = { Text("清空所有历史声纹库", color = MaterialTheme.colorScheme.error) },
+                        supportingContent = { Text("擦除所有已存声纹特征与归属，用于开发调试") },
+                        leadingContent = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        modifier = Modifier.clickable { showClearConfirm = true }
+                    )
 
                     if (showClearConfirm) {
                         AlertDialog(
                             onDismissRequest = { showClearConfirm = false },
-                            title = { Text("确定清空所有声纹数据？", fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary) },
-                            text = { Text("此操作将永久注销所有已存声纹身份卡，并重置所有既往会议纪要的段落角色。") },
+                            icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            title = { Text("清空声纹数据？") },
+                            text = { Text("将永久注销所有已存声纹身份卡，并重置所有既往会议纪要的角色。") },
                             confirmButton = {
                                 TextButton(
                                     onClick = {
@@ -316,17 +238,13 @@ fun SettingsCompose(
                                                 }
                                             }
                                         }
-                                        Toast.makeText(context, "🧹 声纹指纹及段落已重置", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "声纹已重置", Toast.LENGTH_SHORT).show()
                                         showClearConfirm = false
                                     }
-                                ) {
-                                    Text("一键清空", color = Color(0xFFFF3B30), fontWeight = FontWeight.Bold)
-                                }
+                                ) { Text("一键清空", color = MaterialTheme.colorScheme.error) }
                             },
                             dismissButton = {
-                                TextButton(onClick = { showClearConfirm = false }) {
-                                    Text("取消", color = VoiceBridgeTheme.textSecondary)
-                                }
+                                TextButton(onClick = { showClearConfirm = false }) { Text("取消") }
                             }
                         )
                     }
@@ -336,87 +254,23 @@ fun SettingsCompose(
     }
 }
 
-// 重新设计的 iOS 风格卡片行样式
 @Composable
-fun PremiumSettingsRow(
-    title: String,
-    subtitle: String,
-    trailingText: String,
-    icon: ImageVector,
-    iconBgColor: Color,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 圆角高对比彩色图标框
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .background(iconBgColor, shape = RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(text = title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = VoiceBridgeTheme.textPrimary)
-            Text(text = subtitle, fontSize = 11.sp, color = VoiceBridgeTheme.textTertiary)
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(text = trailingText, fontSize = 12.sp, color = VoiceBridgeTheme.textSecondary)
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
-                contentDescription = "进入",
-                tint = VoiceBridgeTheme.textDisabled,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-    }
+fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title,
+        color = MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.titleSmall,
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
+    )
 }
 
-@Composable
-fun InfoRowItem(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = label, fontSize = 13.sp, color = VoiceBridgeTheme.textSecondary)
-        Text(text = value, fontSize = 13.sp, color = VoiceBridgeTheme.textTertiary, fontWeight = FontWeight.Medium)
-    }
-}
+// --------------------------------------------------
+// 以下为复用原来的逻辑，仅做少量 Material 3 UI 调整以适配
+// --------------------------------------------------
 
-// ==========================================
-// 1. 自定义词库子视图 (GlossarySubView)
-// ==========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GlossarySubView(
-    db: VoiceBridgeDatabase,
-    list: List<GlossaryEntryEntity>,
-    onBack: () -> Unit
-) {
+fun GlossarySubView(db: VoiceBridgeDatabase, list: List<GlossaryEntryEntity>, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showAddDialog by remember { mutableStateOf(false) }
@@ -424,125 +278,55 @@ fun GlossarySubView(
 
     Scaffold(
         topBar = {
-            Surface(
-                color = VoiceBridgeTheme.bgCanvas,
-                modifier = Modifier.statusBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = VoiceBridgeTheme.textPrimary)
-                    }
-
-                    Text(
-                        text = "自定义词库",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = VoiceBridgeTheme.textPrimary,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center
-                    )
-
-                    Text(
-                        text = "+ 添加",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = VoiceBridgeTheme.accent,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable {
-                                if (list.size >= GlossaryEntryEntity.MAX_ENTRY_COUNT) {
-                                    Toast.makeText(context, "最多只能添加 ${GlossaryEntryEntity.MAX_ENTRY_COUNT} 条词条", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    newTermInput = ""
-                                    showAddDialog = true
-                                }
-                            }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+            TopAppBar(
+                title = { Text("自定义词库") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        if (list.size >= GlossaryEntryEntity.MAX_ENTRY_COUNT) {
+                            Toast.makeText(context, "最多只能添加 ${GlossaryEntryEntity.MAX_ENTRY_COUNT} 条", Toast.LENGTH_SHORT).show()
+                        } else {
+                            newTermInput = ""
+                            showAddDialog = true
+                        }
+                    }) { Text("添加") }
                 }
-            }
-        },
-        containerColor = VoiceBridgeTheme.bgCanvas
+            )
+        }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp)
         ) {
-            Surface(
-                color = VoiceBridgeTheme.bgSurface,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(12.dp))
-                    .padding(14.dp)
-            ) {
+            item {
                 Text(
-                    text = "💡 可用于添加特定的人名、公司品牌或专业学术名词。在流式转译和 AI 归纳中，识别引擎将优先匹配本词库中的词条纠错，提高转写准确度。",
-                    fontSize = 11.sp,
-                    color = VoiceBridgeTheme.textSecondary,
-                    lineHeight = 16.sp
+                    text = "💡 可用于添加特定的人名或专业名词。在流式转译和 AI 归纳中优先匹配本词库，提高准确度。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(text = "词条列表", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary)
-                Text(text = "${list.size} / ${GlossaryEntryEntity.MAX_ENTRY_COUNT}", fontSize = 12.sp, color = VoiceBridgeTheme.textTertiary)
-            }
-
             if (list.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(text = "词库内没有任何词条", color = VoiceBridgeTheme.textDisabled, fontSize = 13.sp)
+                item {
+                    Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("词库内没有词条", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(list, key = { it.id }) { item ->
-                        Surface(
-                            color = VoiceBridgeTheme.bgSurface,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(12.dp))
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                            ) {
-                                Text(text = item.term, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = VoiceBridgeTheme.textPrimary)
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = "删除",
-                                    tint = VoiceBridgeTheme.error.copy(alpha = 0.8f),
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .clickable {
-                                            scope.launch(Dispatchers.IO) {
-                                                db.glossaryEntryDao().delete(item)
-                                            }
-                                            Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
-                                        }
-                                )
+                items(list, key = { it.id }) { item ->
+                    ListItem(
+                        headlineContent = { Text(item.term) },
+                        trailingContent = {
+                            IconButton(onClick = {
+                                scope.launch(Dispatchers.IO) { db.glossaryEntryDao().delete(item) }
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = "删除", tint = MaterialTheme.colorScheme.error)
                             }
                         }
-                    }
+                    )
+                    HorizontalDivider()
                 }
             }
         }
@@ -551,397 +335,177 @@ fun GlossarySubView(
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("新增词库词条", fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary) },
+            title = { Text("新增词库词条") },
             text = {
                 OutlinedTextField(
                     value = newTermInput,
                     onValueChange = { newTermInput = it },
                     singleLine = true,
-                    placeholder = { Text("请输入专业词汇，如「语音电桥」") },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = VoiceBridgeTheme.accent
-                    ),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    placeholder = { Text("请输入专业词汇") },
+                    modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        val input = newTermInput.trim()
-                        if (input.isNotEmpty()) {
-                            scope.launch(Dispatchers.IO) {
-                                val entry = GlossaryEntryEntity(
-                                    id = UUID.randomUUID().toString(),
-                                    term = input,
-                                    createdAt = Date()
-                                )
-                                db.glossaryEntryDao().insertRaw(entry)
-                            }
-                            Toast.makeText(context, "词条添加成功", Toast.LENGTH_SHORT).show()
+                TextButton(onClick = {
+                    val input = newTermInput.trim()
+                    if (input.isNotEmpty()) {
+                        scope.launch(Dispatchers.IO) {
+                            db.glossaryEntryDao().insertRaw(GlossaryEntryEntity(
+                                id = UUID.randomUUID().toString(), term = input, createdAt = Date()
+                            ))
                         }
-                        showAddDialog = false
                     }
-                ) {
-                    Text("保存", color = VoiceBridgeTheme.accent, fontWeight = FontWeight.Bold)
-                }
+                    showAddDialog = false
+                }) { Text("保存") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("取消", color = VoiceBridgeTheme.textSecondary)
-                }
+                TextButton(onClick = { showAddDialog = false }) { Text("取消") }
             }
         )
     }
 }
 
-// ==========================================
-// 2. 声纹管理子视图 (SpeakerSubView)
-// ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SpeakerSubView(
-    db: VoiceBridgeDatabase,
-    list: List<SpeakerProfileEntity>,
-    onBack: () -> Unit
-) {
+fun SpeakerSubView(db: VoiceBridgeDatabase, list: List<SpeakerProfileEntity>, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
-            Surface(
-                color = VoiceBridgeTheme.bgCanvas,
-                modifier = Modifier.statusBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = VoiceBridgeTheme.textPrimary)
-                    }
-
-                    Text(
-                        text = "声纹指纹库",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = VoiceBridgeTheme.textPrimary,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.width(48.dp))
+            TopAppBar(
+                title = { Text("声纹指纹库") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 }
-            }
-        },
-        containerColor = VoiceBridgeTheme.bgCanvas
+            )
+        }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp)
         ) {
-            Surface(
-                color = VoiceBridgeTheme.bgSurface,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(12.dp))
-                    .padding(14.dp)
-            ) {
+            item {
                 Text(
-                    text = "⚙️ 声纹特征是在本地进行 Diarization(话轮识别) 时提取的 512 维向量特征，用于在跨会议中识别同一发言人。在此注销声纹后，段落名称将重置为「未知发言人」。",
-                    fontSize = 11.sp,
-                    color = VoiceBridgeTheme.textSecondary,
-                    lineHeight = 16.sp
+                    text = "⚙️ 声纹特征是在本地进行 Diarization(话轮识别) 时提取的 512 维向量，用于识别同一发言人。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
-
-            Text(text = "已登记发言人 (${list.size})", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary)
-
             if (list.isEmpty()) {
-                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(text = "尚未登记任何本地离线声纹角色", color = VoiceBridgeTheme.textDisabled, fontSize = 13.sp)
+                item {
+                    Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("尚未登记任何本地离线声纹角色", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(list, key = { it.id }) { item ->
-                        Surface(
-                            color = VoiceBridgeTheme.bgSurface,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(12.dp))
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                items(list, key = { it.id }) { item ->
+                    ListItem(
+                        leadingContent = {
+                            val colorIndex = abs(item.name.hashCode()) % VoiceBridgeTheme.speakerPalette.size
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .size(40.dp)
+                                    .background(VoiceBridgeTheme.speakerPalette[colorIndex], CircleShape),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    // 动态计算发言人的 Okabe-Ito 调色板映射头像颜色
-                                    val colorIndex = abs(item.name.hashCode()) % VoiceBridgeTheme.speakerPalette.size
-                                    val avatarBgColor = VoiceBridgeTheme.speakerPalette[colorIndex]
-
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .background(avatarBgColor, shape = CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = item.name.take(1).uppercase(),
-                                            color = Color.White,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                    Text(text = item.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = VoiceBridgeTheme.textPrimary)
-                                }
-
-                                Icon(
-                                    imageVector = Icons.Default.Clear,
-                                    contentDescription = "注销",
-                                    tint = VoiceBridgeTheme.error.copy(alpha = 0.8f),
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .clip(CircleShape)
-                                        .clickable {
-                                            scope.launch(Dispatchers.IO) {
-                                                db.speakerProfileDao().delete(item)
-                                            }
-                                            Toast.makeText(context, "声纹角色已注销", Toast.LENGTH_SHORT).show()
-                                        }
-                                )
+                                Text(item.name.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        headlineContent = { Text(item.name) },
+                        trailingContent = {
+                            IconButton(onClick = {
+                                scope.launch(Dispatchers.IO) { db.speakerProfileDao().delete(item) }
+                            }) {
+                                Icon(Icons.Default.Clear, contentDescription = "注销", tint = MaterialTheme.colorScheme.error)
                             }
                         }
-                    }
+                    )
+                    HorizontalDivider()
                 }
             }
         }
     }
 }
 
-// ==========================================
-// 3. 离线引擎自检视图 (DiagnosticsSubView)
-// ==========================================
+data class ModelDiagnostics(val name: String, val desc: String, val exists: Boolean, val sizeKb: Long)
+
+fun getModelDiagnostics(context: Context): List<ModelDiagnostics> {
+    val models = listOf(
+        "model.int8.onnx" to "SenseVoice ASR 声学模型",
+        "sense-voice-tokens.txt" to "SenseVoice 词表",
+        "silero_vad.onnx" to "Silero VAD 语音活动检测",
+        "punct.int8.onnx" to "CT-Transformer 标点恢复模型",
+        "campplus.onnx" to "CAM++ 512维声纹提取模型",
+        "pyannote_segmentation.onnx" to "Pyannote 话轮切分模型"
+    )
+    val destDir = File(context.filesDir, "Models")
+    return models.map { (name, desc) ->
+        val file = File(destDir, name)
+        ModelDiagnostics(name, desc, file.exists() && file.length() > 0, file.length() / 1024)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DiagnosticsSubView(
-    context: Context,
-    onBack: () -> Unit
-) {
+fun DiagnosticsSubView(context: Context, onBack: () -> Unit) {
     val filesList = remember { getModelDiagnostics(context) }
     val readyCount = filesList.count { it.exists }
 
-    // 脉冲呼吸动画，用于就绪图标的流动感
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
     Scaffold(
         topBar = {
-            Surface(
-                color = VoiceBridgeTheme.bgCanvas,
-                modifier = Modifier.statusBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回", tint = VoiceBridgeTheme.textPrimary)
-                    }
-
-                    Text(
-                        text = "离线引擎自检",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = VoiceBridgeTheme.textPrimary,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.width(48.dp))
+            TopAppBar(
+                title = { Text("离线引擎自检") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 }
-            }
-        },
-        containerColor = VoiceBridgeTheme.bgCanvas
+            )
+        }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
+            contentPadding = PaddingValues(16.dp)
         ) {
-            // 就绪度卡片：带脉冲呼吸灯效果
-            Surface(
-                color = if (readyCount == 6) VoiceBridgeTheme.success.copy(alpha = 0.1f) else VoiceBridgeTheme.warning.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = 0.5.dp,
-                        color = if (readyCount == 6) VoiceBridgeTheme.success.copy(alpha = 0.3f) else VoiceBridgeTheme.warning.copy(alpha = 0.3f),
-                        shape = RoundedCornerShape(14.dp)
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (readyCount == 6) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
                     )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // 呼吸脉冲指示灯
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(
-                                color = (if (readyCount == 6) VoiceBridgeTheme.success else VoiceBridgeTheme.warning).copy(alpha = pulseAlpha),
-                                shape = CircleShape
-                            )
-                    )
-
-                    Text(
-                        text = if (readyCount == 6) "离线引擎已完全就绪 (6/6 模型)" else "离线引擎文件缺失 ($readyCount/6 已部署)",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (readyCount == 6) VoiceBridgeTheme.success else VoiceBridgeTheme.warning
-                    )
-                }
-            }
-
-            Text(text = "离线模型列表", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = VoiceBridgeTheme.textPrimary)
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(filesList) { item ->
-                    Surface(
-                        color = VoiceBridgeTheme.bgSurface,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(0.5.dp, VoiceBridgeTheme.separator, shape = RoundedCornerShape(12.dp))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = item.name,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = VoiceBridgeTheme.textPrimary
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = if (item.exists) VoiceBridgeTheme.success.copy(alpha = 0.12f) else VoiceBridgeTheme.error.copy(alpha = 0.12f)
-                                ) {
-                                    Text(
-                                        text = if (item.exists) "已部署" else "缺失",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (item.exists) VoiceBridgeTheme.success else VoiceBridgeTheme.error,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-
-                            Text(text = item.desc, fontSize = 11.sp, color = VoiceBridgeTheme.textSecondary)
-
-                            if (item.exists) {
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "文件大小: ${item.size}",
-                                        fontSize = 10.sp,
-                                        color = VoiceBridgeTheme.textTertiary,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-
-                            Text(
-                                text = "沙盒路径: ${item.path}",
-                                fontSize = 8.sp,
-                                color = VoiceBridgeTheme.textDisabled,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = if (readyCount == 6) "系统就绪，一切正常" else "模型缺失",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text("当前可用: $readyCount / 6")
                     }
                 }
             }
-        }
-    }
-}
-
-data class FileDiagnostic(
-    val name: String,
-    val desc: String,
-    val exists: Boolean,
-    val size: String,
-    val path: String
-)
-
-fun getModelDiagnostics(context: Context): List<FileDiagnostic> {
-    val modelsDir = File(context.filesDir, "Models")
-    val files = listOf(
-        Pair("model.int8.onnx", "SenseVoice 识别模型"),
-        Pair("sense-voice-tokens.txt", "SenseVoice 分词表"),
-        Pair("silero_vad.onnx", "Silero 语音活动检测(VAD)"),
-        Pair("punct.int8.onnx", "CT-Transformer 标点恢复"),
-        Pair("3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx", "CAM++ 声纹特征提取"),
-        Pair("sherpa-onnx-pyannote-segmentation-3-0/model.onnx", "Pyannote 话轮分割模型")
-    )
-
-    return files.map { (relPath, desc) ->
-        val file = File(modelsDir, relPath)
-        val exists = file.exists() && file.length() > 0
-        val sizeStr = if (exists) {
-            val len = file.length().toDouble()
-            when {
-                len > 1024 * 1024 -> String.format("%.1f MB", len / (1024 * 1024))
-                len > 1024 -> String.format("%.1f KB", len / 1024)
-                else -> "$len B"
+            
+            items(filesList) { model ->
+                ListItem(
+                    headlineContent = { Text(model.name) },
+                    supportingContent = { Text(model.desc) },
+                    trailingContent = {
+                        if (model.exists) {
+                            Text("${model.sizeKb} KB", color = MaterialTheme.colorScheme.primary)
+                        } else {
+                            Text("未找到", color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    leadingContent = {
+                        Icon(
+                            if (model.exists) Icons.Default.CheckCircle else Icons.Default.Clear,
+                            contentDescription = null,
+                            tint = if (model.exists) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    }
+                )
+                HorizontalDivider()
             }
-        } else {
-            "0 B"
         }
-        FileDiagnostic(
-            name = file.name,
-            desc = desc,
-            exists = exists,
-            size = sizeStr,
-            path = file.absolutePath
-        )
     }
 }

@@ -70,8 +70,8 @@ fun MeetingDetailCompose(
     // Segment tab: 0 = 智能纪要, 1 = 会议逐字稿
     var selectedSegmentTab by remember { mutableStateOf(0) }
 
-    // AI category tag index: 0 = 智能总结, 1 = 会议速览, 2 = 发言人占比, 3 = 待办事项
-    var selectedAICategoryIndex by remember { mutableStateOf(0) }
+    // AI App Launch Sheet 状态
+    var showAIAppSheet by remember { mutableStateOf(false) }
 
     // 轮询播放进度
     LaunchedEffect(isPlaying) {
@@ -411,27 +411,13 @@ fun MeetingDetailCompose(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Button(
-                                    onClick = {
-                                        scope.launch {
-                                            val generated = generateLocalSummary(meetingId, sortedSegments)
-                                            withContext(Dispatchers.IO) {
-                                                db.aiSummaryItemDao().insertAll(generated)
-                                                // 更新会议主表的摘要片段
-                                                record?.let {
-                                                    val snippet = generated.firstOrNull { it.typeKey == "summary" }?.content ?: ""
-                                                    val cleanSnippet = snippet.replace(Regex("###|\\*\\*|\\*|-|#|\\n"), "").take(120)
-                                                    db.meetingRecordDao().update(it.copy(aiSummarySnippet = cleanSnippet))
-                                                }
-                                            }
-                                            Toast.makeText(context, "✨ 本地 AI 纪要生成成功", Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
+                                    onClick = { showAIAppSheet = true },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = VoiceBridgeTheme.accent
                                     ),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("一键提取 AI 纪要", color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("使用第三方 AI 提炼纪要", color = Color.White, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -558,6 +544,14 @@ fun MeetingDetailCompose(
                 }
             }
         }
+    }
+
+    if (showAIAppSheet) {
+        AIAppLaunchSheet(
+            segments = sortedSegments,
+            db = db,
+            onDismiss = { showAIAppSheet = false }
+        )
     }
 }
 
