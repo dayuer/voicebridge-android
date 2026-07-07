@@ -24,6 +24,29 @@ object AudioDecoder {
     private const val TIMEOUT_US = 5000L
 
     /**
+     * 获取音频文件的总时长（秒）
+     */
+    @Throws(IOException::class)
+    fun getDurationSec(audioPath: String): Double {
+        val file = File(audioPath)
+        if (!file.exists()) return 0.0
+
+        val extractor = MediaExtractor()
+        try {
+            extractor.setDataSource(file.absolutePath)
+            val trackIndex = selectAudioTrack(extractor)
+            if (trackIndex < 0) return 0.0
+            val format = extractor.getTrackFormat(trackIndex)
+            val durationUs = format.getLong(MediaFormat.KEY_DURATION)
+            return durationUs / 1_000_000.0
+        } catch (e: Exception) {
+            return 0.0
+        } finally {
+            extractor.release()
+        }
+    }
+
+    /**
      * 解码音频文件的特定区间，并重采样为 16kHz 单声道 Float32 数组。
      * @param audioPath 音频文件绝对路径
      * @param startSec 起始时间（秒）

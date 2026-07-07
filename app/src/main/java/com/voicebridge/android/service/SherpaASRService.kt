@@ -173,27 +173,21 @@ class SherpaASRService private constructor() {
         onProgress?.invoke(0.02)
         Log.i(TAG, "开始读取音频文件进行 VAD 分段: $audioPath")
 
-        // 1. 读取整轨 PCM 样本
-        val allSamples = try {
-            AudioDecoder.decodeRegion(audioPath)
-        } catch (e: Exception) {
-            throw IOException("解析音频失败: ${e.message}")
+        val totalDurationSec = AudioDecoder.getDurationSec(audioPath)
+        if (totalDurationSec <= 0) {
+            throw IOException("无法获取音频时长或音频为空")
         }
 
-        if (allSamples.isEmpty()) {
-            throw IOException("音频解码数据为空")
-        }
-
-        // 2. 语音区域检测 (VAD)
+        // 1. 语音区域检测 (VAD) - 采用分块解码，彻底解决大文件 Native OOM
         onProgress?.invoke(0.04)
-        val regions = detectSpeechRegions(context, allSamples)
+        val regions = detectSpeechRegionsStream(context, audioPath, totalDurationSec, onProgress)
         if (regions.isEmpty()) {
             Log.w(TAG, "VAD 未检测到任何语音区间！")
             onChunkDone?.invoke(null, 0, 1)
             return@withContext Pair(emptyList(), 1)
         }
 
-        // 3. 将区间打包为解码窗口
+        // 2. 将区间打包为解码窗口
         val windows = TranscriptComposer.packWindows(regions)
         val totalWindows = windows.size
         Log.i(TAG, "VAD: ${regions.size} 区间 -> $totalWindows 解码窗口")
@@ -201,13 +195,12 @@ class SherpaASRService private constructor() {
 
         val segments = ArrayList<SherpaTranscriptionSegment>()
 
-        // 4. 按窗口逐一解码
+        // 3. 按窗口按需解码，消除全文件浮点数组导致的 Java OOM
         for (i in startChunkIndex until totalWindows) {
             val w = windows[i]
-            // 计算在原始采样 16kHz PCM 中的索引
-            val startIdx = (w.start * 16000).toInt().coerceIn(0, allSamples.size)
-            val endIdx = (w.end * 16000).toInt().coerceIn(0, allSamples.size)
-            val chunkSamples = allSamples.copyOfRange(startIdx, endIdx)
+            
+            // 按需解码窗口内的数据，占用内存极小
+            val chunkSamples = AudioDecoder.decodeRegion(audioPath, w.start, w.end)
 
             var chunkSegment: SherpaTranscriptionSegment? = null
             if (chunkSamples.isNotEmpty()) {
@@ -240,13 +233,18 @@ class SherpaASRService private constructor() {
     }
 
     /**
-     * VAD 语音区间检测，含 VAD 模型不可用时的平均切片降级策略
+     * VAD 语音区间检测，按 60 秒块流式解码，大幅降低内存占用
      */
-    private fun detectSpeechRegions(context: Context, samples: FloatArray): List<Pair<Double, Double>> {
+    private suspend fun detectSpeechRegionsStream(
+        context: Context,
+        audioPath: String,
+        totalDurationSec: Double,
+        onProgress: ((Double) -> Unit)?
+    ): List<Pair<Double, Double>> {
         val vadModelPath = getFilePath(context, VAD_MODEL)
         if (vadModelPath == null) {
             Log.w(TAG, "VAD 模块模型缺失，采用 20 秒平均切片降级模式")
-            return fallbackSegment(samples)
+            return fallbackSegment(totalDurationSec)
         }
 
         try {
@@ -254,57 +252,64 @@ class SherpaASRService private constructor() {
                 sileroVadModelConfig = SileroVadModelConfig(model = vadModelPath),
                 sampleRate = 16000
             )
-            // 配置 VAD 缓冲区
             val detector = Vad(config = vadConfig)
             val regions = ArrayList<Pair<Double, Double>>()
             
-            // 循环喂入数据，每次 16000 采样点（1秒），避免 ONNX Runtime 分配过大张量导致 Native OOM 崩溃
-            val chunkSamples = 16000
-            var offset = 0
-            while (offset < samples.size) {
-                val end = (offset + chunkSamples).coerceAtMost(samples.size)
-                val chunk = samples.copyOfRange(offset, end)
-                detector.acceptWaveform(chunk)
+            val chunkSec = 60.0
+            var curSec = 0.0
+            
+            while (curSec < totalDurationSec) {
+                val endSec = (curSec + chunkSec).coerceAtMost(totalDurationSec)
+                val samples = AudioDecoder.decodeRegion(audioPath, curSec, endSec)
                 
-                // 及时消费检测到的语音段，防止内部堆积
-                while (!detector.empty()) {
-                    val segment: SpeechSegment = detector.front()
-                    detector.pop()
+                // 将 60s 块按 1s 小块喂给 VAD，避免 ONNX 张量溢出
+                val subChunkSamples = 16000
+                var offset = 0
+                while (offset < samples.size) {
+                    val end = (offset + subChunkSamples).coerceAtMost(samples.size)
+                    val subChunk = samples.copyOfRange(offset, end)
+                    detector.acceptWaveform(subChunk)
                     
-                    val duration = segment.samples.size.toDouble() / 16000.0
-                    val startTime = segment.start.toDouble() / 16000.0
-                    regions.add(Pair(startTime, startTime + duration))
+                    while (!detector.empty()) {
+                        val segment: SpeechSegment = detector.front()
+                        detector.pop()
+                        
+                        val duration = segment.samples.size.toDouble() / 16000.0
+                        // 加上外层大块的基础时间
+                        val startTime = curSec + (segment.start.toDouble() / 16000.0)
+                        regions.add(Pair(startTime, startTime + duration))
+                    }
+                    offset += subChunkSamples
                 }
-                offset += chunkSamples
+                
+                curSec += chunkSec
+                // 更新 VAD 进度：从 0.04 -> 0.08
+                onProgress?.invoke(0.04 + 0.04 * (curSec / totalDurationSec))
             }
             
             try {
-                // 尝试刷新最后可能的残留语音段
                 detector.javaClass.getMethod("flush").invoke(detector)
                 while (!detector.empty()) {
                     val segment: SpeechSegment = detector.front()
                     detector.pop()
                     val duration = segment.samples.size.toDouble() / 16000.0
-                    val startTime = segment.start.toDouble() / 16000.0
+                    val startTime = curSec + (segment.start.toDouble() / 16000.0)
                     regions.add(Pair(startTime, startTime + duration))
                 }
-            } catch (e: Exception) {
-                // flush 方法可能在某些版本中不存在，忽略即可
-            }
+            } catch (e: Exception) { }
             
             detector.release()
-            return if (regions.isEmpty()) fallbackSegment(samples) else regions
+            return if (regions.isEmpty()) fallbackSegment(totalDurationSec) else regions
         } catch (e: Exception) {
             Log.e(TAG, "VAD 检测异常，降轨到 fallback 切片: ${e.message}")
-            return fallbackSegment(samples)
+            return fallbackSegment(totalDurationSec)
         }
     }
 
     /**
      * 强降轨机制：每隔 20 秒产生一个解码区间
      */
-    private fun fallbackSegment(samples: FloatArray): List<Pair<Double, Double>> {
-        val totalSec = samples.size.toDouble() / 16000.0
+    private fun fallbackSegment(totalSec: Double): List<Pair<Double, Double>> {
         val regions = ArrayList<Pair<Double, Double>>()
         var cur = 0.0
         val step = 20.0
