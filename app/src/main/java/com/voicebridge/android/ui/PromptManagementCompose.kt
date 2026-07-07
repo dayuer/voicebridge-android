@@ -100,10 +100,10 @@ fun PromptListItem(template: AIPromptTemplate, onClick: () -> Unit) {
     ) {
         val icon: ImageVector = when (template.iconName) {
             "checklist" -> Icons.Default.CheckCircle
-            "flag" -> Icons.Default.Flag
-            "lightbulb" -> Icons.Default.Lightbulb
-            "mail" -> Icons.Default.Mail
-            else -> Icons.Default.Article
+            "flag" -> Icons.Default.Place
+            "lightbulb" -> Icons.Default.Info
+            "mail" -> Icons.Default.Email
+            else -> Icons.Default.List
         }
 
         Icon(

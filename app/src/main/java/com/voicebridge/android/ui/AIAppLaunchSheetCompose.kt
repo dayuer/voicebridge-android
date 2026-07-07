@@ -11,11 +11,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -145,10 +145,10 @@ fun AIAppLaunchSheet(
                         val isSelected = selectedPrompt.typeKey == template.typeKey
                         val icon: ImageVector = when (template.iconName) {
                             "checklist" -> Icons.Default.CheckCircle
-                            "flag" -> Icons.Default.Flag
-                            "lightbulb" -> Icons.Default.Lightbulb
-                            "mail" -> Icons.Default.Mail
-                            else -> Icons.Default.Article
+                            "flag" -> Icons.Default.Place
+                            "lightbulb" -> Icons.Default.Info
+                            "mail" -> Icons.Default.Email
+                            else -> Icons.Default.List
                         }
                         
                         Surface(
