@@ -2,6 +2,7 @@ package com.voicebridge.android.service
 
 import android.content.Context
 import android.util.Log
+import com.voicebridge.android.util.AppLog
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -101,6 +102,7 @@ class DiarizationTaskQueue private constructor() {
                 queue.add(Pair(meetingId, audioFilePath))
                 _pendingCount.value = queue.size + (if (_activeJobId.value != null) 1 else 0)
                 Log.i(TAG, "声纹任务入队: $meetingId, 队列长度: ${queue.size}")
+                AppLog.voiceprint("声纹分离任务入队，队列长度 ${queue.size}")
             }
             processNextIfIdle(context)
         }
@@ -137,6 +139,7 @@ class DiarizationTaskQueue private constructor() {
                     executeJob(context, next.first, next.second)
                 } catch (e: Exception) {
                     Log.e(TAG, "声纹聚类任务执行失败: ${next.first}", e)
+                    AppLog.error("声纹聚类任务执行失败: ${e.message}")
                     markJobStatus(next.first, 4) // failed
                 } finally {
                     mutex.withLock {
@@ -168,6 +171,7 @@ class DiarizationTaskQueue private constructor() {
         }
 
         Log.i(TAG, "开始计算声纹与话轮对齐...")
+        AppLog.voiceprint("开始计算声纹与话轮对齐")
 
         // 调用 Stage B 话轮化与声纹落库总管
         TranscriptFinalizer.applyDiarization(

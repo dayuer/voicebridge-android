@@ -2,6 +2,7 @@ package com.voicebridge.android.service
 
 import android.content.Context
 import android.util.Log
+import com.voicebridge.android.util.AppLog
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.data.entity.MeetingRecordEntity
 import com.voicebridge.android.data.entity.SupportedLanguage
@@ -103,6 +104,7 @@ class ImportTaskQueue private constructor() {
             }
 
             Log.i(TAG, "扫描发现 ${incompleteList.size} 个未完成任务待恢复")
+            AppLog.pipeline("扫描发现 ${incompleteList.size} 个未完成任务待恢复")
             for (record in incompleteList) {
                 val path = record.audioFilePath ?: continue
                 val lang = record.importLanguageCode?.let { SupportedLanguage.fromRawValue(it) }
@@ -124,6 +126,7 @@ class ImportTaskQueue private constructor() {
                 queue.add(job)
                 _pendingCount.value = queue.size + (if (_activeJobId.value != null) 1 else 0)
                 Log.i(TAG, "任务入队成功: ${job.meetingId}, 队列大小: ${queue.size}")
+                AppLog.fileImport("音频任务入队，队列大小 ${queue.size}")
             }
             processNextIfIdle(context)
         }
@@ -163,6 +166,7 @@ class ImportTaskQueue private constructor() {
                     Log.i(TAG, "任务被取消: ${nextJob.meetingId}")
                 } catch (e: Exception) {
                     Log.e(TAG, "任务执行异常: ${nextJob.meetingId}", e)
+                    AppLog.error("转写任务执行异常: ${e.message}")
                     updateProgressToFailed(nextJob.meetingId)
                 } finally {
                     mutex.withLock {
@@ -196,6 +200,7 @@ class ImportTaskQueue private constructor() {
         }
 
         Log.i(TAG, "开始后台转译任务: ${meeting.title}, 语言: ${job.language}")
+        AppLog.pipeline("开始后台转译: ${meeting.title}, 语言: ${job.language?.displayName ?: "自动检测"}")
 
         // 运行管线
         val result = pipelineService.transcribe(
@@ -215,6 +220,7 @@ class ImportTaskQueue private constructor() {
         }
 
         Log.i(TAG, "ASR 完成，收集到 ${result.segments.size} 条片段，开始标点恢复与 finalize...")
+        AppLog.speech("ASR 完成，收集到 ${result.segments.size} 条片段")
 
         // 文章分段组装
         val windows = ArrayList<TranscriptWindow>()
@@ -267,6 +273,7 @@ class ImportTaskQueue private constructor() {
         }
 
         Log.i(TAG, "✅ 后台转译及标点恢复成功: ${meeting.title}, 共写入 ${paragraphs.size} 段段落")
+        AppLog.pipeline("转译完成: ${meeting.title}, 共写入 ${paragraphs.size} 段段落")
     }
 
     private suspend fun updateProgressToFailed(meetingId: String) = withContext(Dispatchers.IO) {

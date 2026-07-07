@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.voicebridge.android.data.SettingsStore
 import com.voicebridge.android.data.db.VoiceBridgeDatabase
 import com.voicebridge.android.data.entity.AISummaryItemEntity
 import com.voicebridge.android.data.entity.TranscriptSegmentEntity
@@ -72,6 +73,15 @@ fun MeetingDetailCompose(
 
     // AI App Launch Sheet 状态
     var showAIAppSheet by remember { mutableStateOf(false) }
+    var showAIConsentSheet by remember { mutableStateOf(false) }
+    // AI 协作入口守卫：检查同意状态，未同意则先弹出数据分享说明（对齐 iOS requestAIFlow）
+    val requestAIFlow: () -> Unit = {
+        if (SettingsStore.hasAgreedToAIDataSharing(context)) {
+            showAIAppSheet = true
+        } else {
+            showAIConsentSheet = true
+        }
+    }
 
     // AI category tag index (used if there are existing aiItems)
     var selectedAICategoryIndex by remember { mutableStateOf(0) }
@@ -414,7 +424,7 @@ fun MeetingDetailCompose(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Button(
-                                    onClick = { showAIAppSheet = true },
+                                    onClick = requestAIFlow,
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = VoiceBridgeTheme.accent
                                     ),
@@ -554,6 +564,17 @@ fun MeetingDetailCompose(
             segments = sortedSegments,
             db = db,
             onDismiss = { showAIAppSheet = false }
+        )
+    }
+
+    if (showAIConsentSheet) {
+        AIDataConsentSheet(
+            onAgree = {
+                SettingsStore.setAIDataSharingConsent(context, true)
+                showAIConsentSheet = false
+                showAIAppSheet = true
+            },
+            onDecline = { showAIConsentSheet = false }
         )
     }
 }

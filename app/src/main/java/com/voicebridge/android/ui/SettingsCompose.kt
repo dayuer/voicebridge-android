@@ -72,6 +72,8 @@ fun SettingsCompose(
         SpeakerSubView(db = db, list = speakerList, onBack = { currentSubView = null })
     } else if (currentSubView == "diagnostics") {
         DiagnosticsSubView(context = context, onBack = { currentSubView = null })
+    } else if (currentSubView == "console") {
+        DebugConsoleCompose(onBack = { currentSubView = null })
     } else if (currentSubView == "prompt") {
         PromptManagementCompose(onNavigateUp = { currentSubView = null })
     } else {
@@ -213,6 +215,15 @@ fun SettingsCompose(
                         supportingContent = { Text("检查 6 个核心离线模型就绪情况") },
                         leadingContent = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable { currentSubView = "diagnostics" }
+                    )
+                }
+
+                item {
+                    ListItem(
+                        headlineContent = { Text("调试日志控制台") },
+                        supportingContent = { Text("实时查看转写管线运行日志") },
+                        leadingContent = { Icon(Icons.Default.List, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        modifier = Modifier.clickable { currentSubView = "console" }
                     )
                 }
 
