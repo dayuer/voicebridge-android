@@ -45,8 +45,16 @@
 *   `app/src/main/java/com/voicebridge/android/service/PDFExportService.kt` : 离屏 WebView 模版渲染加系统的 PrintManager A4 PDF 导出。
 *   `app/src/main/java/com/voicebridge/android/ui/ShareImportActivity.kt` : 拦截系统发送 Uri 分享，自动后台复制入库排队。
 *   `app/src/main/java/com/voicebridge/android/ui/HomeCompose.kt` : Compose 绘制双 Tab 主面板（纪要列表 + 文件导入去重）。
-*   `app/src/main/java/com/voicebridge/android/ui/MeetingDetailCompose.kt` : 详情页：MediaPlayer 控制、逐字稿播放定位与双击跳转、声纹跨会议重命名。
-*   `app/src/main/java/com/voicebridge/android/ui/theme/Theme.kt` : 自定义自适应明暗明暗设计令牌、Okabe-Ito 8色色盲安全调色板与 Compose Theme 包装器。
+*   `app/src/main/java/com/voicebridge/android/ui/MeetingDetailCompose.kt` : 详情页：MediaPlayer 控制、逐字稿播放定位与双击跳转、声纹跨会议重命名；AI 九宫格入口经 requestAIFlow 同意门禁守卫。
+*   `app/src/main/java/com/voicebridge/android/ui/theme/Theme.kt` : 品牌靛蓝 Material 3 ColorScheme（light/dark）、AppAppearance 外观枚举、自定义设计令牌与 Okabe-Ito 8色色盲安全调色板。
+*   `app/src/main/java/com/voicebridge/android/data/SettingsStore.kt` : 全局设置存储（SharedPreferences）：外观、默认识别语言、隐私授权与 AI 数据分享同意（对齐 iOS SettingsStore 联动语义）。
+*   `app/src/main/java/com/voicebridge/android/ui/SplashOverlay.kt` : 「声波成桥」品牌启动动画（Canvas 矢量描边 + 多轮廓 trim），减弱动态时降级静态。
+*   `app/src/main/java/com/voicebridge/android/ui/AIDataConsentSheet.kt` : AI 数据分享同意底部弹窗（三项数据披露卡，对齐 iOS AIDataConsentView）。
+*   `app/src/main/java/com/voicebridge/android/ui/SpeakerLibraryCompose.kt` : 声纹指纹库管理页（Faces 全局聚类范式）：已登记发言人重命名/删除、游离样本 AHC 聚类候选簇试听/标定/拆分/忽略。
+*   `app/src/main/java/com/voicebridge/android/ui/GlossaryCompose.kt` : 自定义词库管理页：内联添加查重、200 条上限、搜索过滤、批量导入与分享导出。
+*   `app/src/main/java/com/voicebridge/android/ui/DebugConsoleCompose.kt` : 调试日志控制台（分类过滤/复制/清空/自动滚动）。
+*   `app/src/main/java/com/voicebridge/android/util/AppLog.kt` : 统一分类日志打点（Logcat + LogStore 双写）。
+*   `app/src/main/java/com/voicebridge/android/util/LogStore.kt` : 内存环形日志仓（1000 条上限批量裁剪，StateFlow 供 UI 订阅）。
 
 ---
 
