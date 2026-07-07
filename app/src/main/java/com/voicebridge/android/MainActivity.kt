@@ -29,12 +29,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             VoiceBridgeTheme {
                 var currentMeetingId by remember { mutableStateOf<String?>(null) }
-                var isSettingsOpen by remember { mutableStateOf(false) }
+                var settingsSubView by remember { mutableStateOf<String?>(null) }
 
-                if (isSettingsOpen) {
+                if (settingsSubView != null) {
                     SettingsCompose(
                         db = db,
-                        onBack = { isSettingsOpen = false }
+                        initialSubView = settingsSubView,
+                        onBack = { settingsSubView = null }
                     )
                 } else {
                     val meetingId = currentMeetingId
@@ -48,7 +49,8 @@ class MainActivity : ComponentActivity() {
                         HomeCompose(
                             db = db,
                             onNavigateToDetail = { id -> currentMeetingId = id },
-                            onNavigateToSettings = { isSettingsOpen = true }
+                            onNavigateToSettings = { settingsSubView = "" },
+                            onNavigateToDiagnostics = { settingsSubView = "diagnostics" }
                         )
                     }
                 }

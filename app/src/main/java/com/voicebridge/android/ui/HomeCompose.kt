@@ -62,7 +62,8 @@ import java.util.*
 fun HomeCompose(
     db: VoiceBridgeDatabase,
     onNavigateToDetail: (String) -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToDiagnostics: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var records by remember { mutableStateOf<List<MeetingRecordComplete>>(emptyList()) }
@@ -110,8 +111,10 @@ fun HomeCompose(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
+                                .clip(CircleShape)
                                 .background(VoiceBridgeTheme.bgSurface, shape = CircleShape)
                                 .border(0.5.dp, VoiceBridgeTheme.separator, shape = CircleShape)
+                                .clickable { onNavigateToDiagnostics() }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Box(
@@ -127,7 +130,14 @@ fun HomeCompose(
                                 text = if (isModelReady) "离线引擎就绪" else "引擎未就绪",
                                 fontSize = 11.sp,
                                 color = VoiceBridgeTheme.textTertiary,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowRight,
+                                contentDescription = "诊断",
+                                tint = VoiceBridgeTheme.textDisabled,
+                                modifier = Modifier.size(10.dp)
                             )
                         }
 
