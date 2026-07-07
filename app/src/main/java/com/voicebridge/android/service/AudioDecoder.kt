@@ -139,14 +139,30 @@ object AudioDecoder {
                 System.arraycopy(chunk, 0, rawSamples, offset, chunk.size)
                 offset += chunk.size
             }
-            // 1. 降轨至单声道 Mono
-            val monoSamples = toMono(rawSamples, channelCount)
-            // 2. 归一化至 Float [-1.0, 1.0]
-            val normalized = FloatArray(monoSamples.size) { i ->
-                monoSamples[i].toFloat() / 32768.0f
+            // 立即释放 chunks 内存以防止 OOM
+            decodedChunks.clear()
+            
+            // 将降轨 (Mono)、归一化 (Float) 和重采样 (16kHz) 合并为一次遍历，消除三个中间数组的巨大内存开销
+            val totalFrames = totalShorts / channelCount
+            val ratio = inputSampleRate.toDouble() / TARGET_SAMPLE_RATE.toDouble()
+            val destLength = (totalFrames / ratio).toInt()
+            
+            val finalSamples = FloatArray(destLength)
+            for (i in 0 until destLength) {
+                val srcFrameIdx = (i * ratio).toInt().coerceAtMost(totalFrames - 1)
+                
+                var sum = 0
+                val frameOffset = srcFrameIdx * channelCount
+                // 取出该帧所有声道的样本并求和，合轨为单声道
+                for (c in 0 until channelCount) {
+                    sum += rawSamples[frameOffset + c].toInt()
+                }
+                
+                val monoShort = sum / channelCount
+                finalSamples[i] = monoShort.toFloat() / 32768.0f
             }
-            // 3. 重采样到 16kHz
-            return resample(normalized, inputSampleRate, TARGET_SAMPLE_RATE)
+            
+            return finalSamples
 
         } finally {
             try {
