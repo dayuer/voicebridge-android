@@ -128,7 +128,7 @@ fun SettingsCompose(
                         headlineContent = { Text("声纹管理") },
                         supportingContent = { Text("管理离线声纹特征与发言人") },
                         trailingContent = { Text("${speakerList.size} 个发言人") },
-                        leadingContent = { Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
+                        leadingContent = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.secondary) },
                         modifier = Modifier.clickable { currentSubView = "speaker" }
                     )
                 }
@@ -140,7 +140,7 @@ fun SettingsCompose(
                     ListItem(
                         headlineContent = { Text("离线引擎自检与诊断") },
                         supportingContent = { Text("检查 6 个核心离线模型就绪情况") },
-                        leadingContent = { Icon(Icons.Default.HealthAndSafety, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingContent = { Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                         modifier = Modifier.clickable { currentSubView = "diagnostics" }
                     )
                 }
@@ -151,7 +151,7 @@ fun SettingsCompose(
                         headlineContent = { Text("服务与隐私授权") },
                         supportingContent = { Text("已授权服务与隐私协议") },
                         trailingContent = { Text("管理", color = MaterialTheme.colorScheme.error) },
-                        leadingContent = { Icon(Icons.Default.PrivacyTip, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                         modifier = Modifier.clickable { showRevokeConfirm = true }
                     )
                     
@@ -204,14 +204,14 @@ fun SettingsCompose(
                     ListItem(
                         headlineContent = { Text("清空所有历史声纹库", color = MaterialTheme.colorScheme.error) },
                         supportingContent = { Text("擦除所有已存声纹特征与归属，用于开发调试") },
-                        leadingContent = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                         modifier = Modifier.clickable { showClearConfirm = true }
                     )
 
                     if (showClearConfirm) {
                         AlertDialog(
                             onDismissRequest = { showClearConfirm = false },
-                            icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                             title = { Text("清空声纹数据？") },
                             text = { Text("将永久注销所有已存声纹身份卡，并重置所有既往会议纪要的角色。") },
                             confirmButton = {
